@@ -7,15 +7,11 @@
   "type": "module",
   "scripts": {
     "typecheck": "\"$(effect-tsgo get-exe-path)\" --noEmit",
-    "test:e2e": "node test/e2e/readiness.mjs",
-    "test:e2e:git": "node test/e2e/git-history.mjs",
-    "test:e2e:launch": "node test/e2e/launch.mjs",
-    "test:e2e:inspect": "node test/e2e/inspect.mjs",
-    "test:e2e:publication": "node test/e2e/publication.mjs",
-    "test:e2e:github": "node test/e2e/github.mjs",
-    "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp test --run",
+    "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp run test",
     "check:packages": "node scripts/check-packages.mjs",
-    "build": "vp run -r build"
+    "build": "vp run -r build",
+    "test": "vp run -r test",
+    "test:integration": "node test/integration/launch.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260926.1",

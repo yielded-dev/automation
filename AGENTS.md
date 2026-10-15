@@ -41,7 +41,9 @@ workflow evidence; no new tests without a concrete regression or explicit reques
 
 Main requires a PR and the `Check` status. After user approval, squash merge and
 delete the branch. Build package `dist` for checks and npm tarballs; do not commit it.
-Run the applicable native fixtures when changing execution, storage or packaging.
+Keep tests in each package's `test/` directory. The root `test/` holds shared
+fixtures and cross-package integration tests. Run the applicable native fixtures
+when changing execution, storage or packaging.
 
 Review changed behavior for correctness, ownership, security and operability.
 Findings need a diff anchor and a concrete failure mode or policy violation;

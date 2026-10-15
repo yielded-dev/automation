@@ -68,9 +68,9 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent) {
     }),
   );
   for (const fixture of fixtures) {
-    const target = join(cwd, "test/e2e", fixture);
+    const target = join(cwd, fixture);
     await mkdir(dirname(target), { recursive: true });
-    await copyFile(join(root, "test/e2e", fixture), target);
+    await copyFile(join(root, fixture), target);
   }
   await writeFile(
     join(cwd, "tsconfig.json"),
@@ -85,7 +85,7 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent) {
         skipLibCheck: true,
         types: ["@cloudflare/workers-types", "node"],
       },
-      include: ["test/e2e/**/*.ts"],
+      include: ["packages/*/test/e2e/**/*.ts", "test/fixtures/**/*.ts"],
     }),
   );
   run(cwd, "vp", ["install", "--ignore-scripts"]);
@@ -110,10 +110,10 @@ try {
     "automation",
     {},
     {},
-    ["github.mjs", "github.worker.ts"],
+    ["packages/automation/test/e2e/github.mjs", "packages/automation/test/e2e/github.worker.ts"],
     ["@yielded/sandbox", "effect-cf", "@cloudflare/sandbox"],
   );
-  run(automation.cwd, process.execPath, ["test/e2e/github.mjs"]);
+  run(automation.cwd, process.execPath, ["packages/automation/test/e2e/github.mjs"]);
   console.log("automation: native GitHub fixture passed without sandbox or effect-cf");
 
   const sandbox = await consumer(
@@ -121,10 +121,10 @@ try {
     versions("effect-cf"),
     versions("@effect/sql-d1", "@effect/sql-sqlite-do"),
     [
-      "git-history.mjs",
-      "git-history.worker.ts",
-      "fixtures/artifacts.worker.ts",
-      "fixtures/git-artifacts.mjs",
+      "packages/sandbox/test/e2e/git-history.mjs",
+      "packages/sandbox/test/e2e/git-history.worker.ts",
+      "test/fixtures/artifacts.worker.ts",
+      "test/fixtures/git-artifacts.mjs",
     ],
     ["@yielded/automation"],
   );
@@ -142,7 +142,12 @@ try {
     assert.ok((await stat(path)).size > 0, `Empty container asset: ${asset}`);
   }
   if (image) {
-    run(sandbox.cwd, process.execPath, ["test/e2e/git-history.mjs", image, "1", "fork"]);
+    run(sandbox.cwd, process.execPath, [
+      "packages/sandbox/test/e2e/git-history.mjs",
+      image,
+      "1",
+      "fork",
+    ]);
     console.log("sandbox: native Git-history fork fixture passed without automation");
   } else {
     await writeFile(
@@ -151,7 +156,7 @@ try {
 await build({
   cwd: process.cwd(),
   config: false,
-  entry: { "git-history-worker": "test/e2e/git-history.worker.ts" },
+  entry: { "git-history-worker": "packages/sandbox/test/e2e/git-history.worker.ts" },
   outDir: "bundle",
   outExtensions: () => ({ js: ".mjs" }),
   platform: "neutral",

@@ -54,6 +54,6 @@ and storage keys are unchanged. Keep the same storage and namespace bindings whe
 adopting the packages. Queue retention bridges a rolling upgrade in which an older
 receiver does not yet expose a new method.
 
-The [native fixture guide](../test/e2e/README.md) distinguishes current-runtime,
+The [native fixture guide](../test/README.md) distinguishes current-runtime,
 historical-comparison, scripted-provider and container proofs. Native fixtures
 are not evidence of a hosted provider run.

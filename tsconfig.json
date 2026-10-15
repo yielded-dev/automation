@@ -11,5 +11,5 @@
     "noUncheckedIndexedAccess": true,
     "verbatimModuleSyntax": true
   },
-  "include": ["packages/*/src", "test/e2e/*.ts"]
+  "include": ["packages/*/src", "packages/*/test/e2e/**/*.ts", "test/**/*.ts"]
 }

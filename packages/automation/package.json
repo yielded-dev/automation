@@ -55,7 +55,11 @@
   },
   "scripts": {
     "build": "vp pack",
-    "prepack": "vp run build"
+    "prepack": "vp run build",
+    "test": "vp test --run",
+    "test:e2e": "node test/e2e/inspect.mjs",
+    "test:e2e:github": "node test/e2e/github.mjs",
+    "test:e2e:publication": "node test/e2e/publication.mjs"
   },
   "dependencies": {
     "uuid": "14.0.1"

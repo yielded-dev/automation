@@ -35,7 +35,10 @@
   },
   "scripts": {
     "build": "vp pack",
-    "prepack": "vp run build"
+    "prepack": "vp run build",
+    "test": "vp test --run",
+    "test:e2e": "node test/e2e/readiness.mjs",
+    "test:e2e:git": "node test/e2e/git-history.mjs"
   },
   "dependencies": {
     "@cloudflare/sandbox": "1.0.0"

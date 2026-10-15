@@ -22,5 +22,5 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run check
-      - run: vp run test:e2e:inspect
+      - run: vp run -F @yielded/automation test:e2e
       - run: vp run check:packages
