@@ -3,7 +3,7 @@ import { defineConfig } from "vite-plus";
 
 export default defineConfig({
   pack: {
-    // Stable entry order keeps committed output identical across filesystems.
+    // Stable entry order keeps generated output reproducible across filesystems.
     entry: globSync("src/**/*.ts").sort(),
     unbundle: true,
     root: "src",

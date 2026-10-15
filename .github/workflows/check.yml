@@ -24,7 +24,3 @@ jobs:
       - run: vp run check
       - run: vp run test:e2e:inspect
       - run: vp run check:packages
-      - name: Verify committed package output
-        run: |
-          git diff --exit-code -- packages/automation/dist packages/sandbox/dist
-          test -z "$(git ls-files --others --exclude-standard -- packages/automation/dist packages/sandbox/dist)"

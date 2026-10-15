@@ -62,4 +62,4 @@ jobs:
           max-cost-usd: 50
           # The initial scaffold PR precedes AGENTS.md on the trusted branch.
           guidance-file: ${{ hashFiles('AGENTS.md') != '' && 'AGENTS.md' || '' }}
-          ignore: "**/*.map,**/*.lock,packages/automation/dist/**,packages/sandbox/dist/**"
+          ignore: "**/*.map,**/*.lock"

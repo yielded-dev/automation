@@ -40,7 +40,7 @@ workflow evidence; no new tests without a concrete regression or explicit reques
 ## Review and verification
 
 Main requires a PR and the `Check` status. After user approval, squash merge and
-delete the branch. Rebuild and commit package `dist` output with source changes.
+delete the branch. Build package `dist` for checks and npm tarballs; do not commit it.
 Run the applicable native fixtures when changing execution, storage or packaging.
 
 Review changed behavior for correctness, ownership, security and operability.
@@ -61,5 +61,5 @@ prefer no finding to an invented one. Formatting belongs to the toolchain.
 - Keep documentation to purpose, ownership, non-obvious constraints and necessary
   manual operations. Use generic examples; do not publish private work reports.
 - The reviewer reads guidance from the trusted default branch and does not
-  execute PR code. Do not switch to `pull_request_target`. Compiled `dist` files
-  and lockfiles are excluded from review; CI verifies the package output.
+  execute PR code. Do not switch to `pull_request_target`. Lockfiles are excluded
+  from review; CI builds packages and verifies their isolated tarball installs.
