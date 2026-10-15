@@ -1,8 +1,8 @@
 import { REPOSITORY_SETUP_MAX_BYTES, RepositorySetup, RepositorySetupError } from "../model/RepositorySetup.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { REPO_DIR } from "../workspace-paths.mjs";
 import { reportSanitizedCause } from "../observability/RuntimeDiagnostics.mjs";
 import { inMeasure } from "../tracing/RunSpanCapture.mjs";
+import { REPO_DIR } from "../workspace-paths.mjs";
 import { SandboxAgentConfig } from "./Config.mjs";
 import { resourceHash } from "./resource-names.mjs";
 import { repositorySetupCommandFailure, repositorySetupFailureCause } from "../model/RepositorySetupFailure.mjs";

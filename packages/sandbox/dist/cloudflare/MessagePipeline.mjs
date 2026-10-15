@@ -1,10 +1,10 @@
 import { agentPhases, unknownLifecycleObserved } from "../Contract.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { AgentEventSink } from "./AgentEventSink.mjs";
 import { reportSanitizedCause } from "../observability/RuntimeDiagnostics.mjs";
 import { Harness, HarnessTurnError } from "../harness/Harness.mjs";
 import { inMeasure, inPhase } from "../tracing/RunSpanCapture.mjs";
+import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { SandboxAgentConfig, requireRepositorySeed, sandboxAgentDeadlinePolicy } from "./Config.mjs";
 import { isSandboxFileMissing } from "./NativeSandbox.mjs";
 import { forkNameFor, resourceHash, sandboxNameFor } from "./resource-names.mjs";

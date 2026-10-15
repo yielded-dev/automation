@@ -54,7 +54,7 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack 'src/**/*.ts' --unbundle --root src --platform node --no-dts --publint",
+    "build": "vp pack",
     "prepack": "vp run build"
   },
   "dependencies": {

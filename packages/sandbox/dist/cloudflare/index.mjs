@@ -1,9 +1,9 @@
 import { SANDBOX_PACKAGE_VERSION } from "../RuntimeVersions.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { AgentEventSink, AgentEventSinkError } from "./AgentEventSink.mjs";
 import { Harness, HarnessTurnError } from "../harness/Harness.mjs";
 import { inMeasure, makeRunSpanCapture } from "../tracing/RunSpanCapture.mjs";
+import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { ArtifactsOperationTimeoutError, ForkNotReadyError, artifactsForkPolicyFromDeadlines, artifactsMainHead, awaitArtifactsForkReady, ensureArtifactsFork, isForkProvisioning, requestArtifactsFork } from "./ArtifactsFork.mjs";
 import { SandboxAgentConfig, defaultSandboxAgentDeadlinePolicy, sandboxAgentDeadlinePolicy } from "./Config.mjs";
 import { CAPACITY_NAME, InspectionOptions, NATIVE_INSTANCE_HEADER, NATIVE_PORT_HOST, NativeSandboxNamespace, PREVIEW_TOKEN_HEADER, PreviewRoute, ProcessResource, ProcessStatus, RepositoryAuthorizationGrant, SandboxOperationError, WorkspaceCheckpoint, decodeNativeReply, isSandboxFileMissing, makeNativeSandbox, previewTokenHash } from "./NativeSandbox.mjs";

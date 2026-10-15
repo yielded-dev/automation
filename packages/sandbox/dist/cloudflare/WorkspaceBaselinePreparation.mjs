@@ -1,7 +1,7 @@
 import { RepositorySetupError } from "../model/RepositorySetup.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { inMeasure } from "../tracing/RunSpanCapture.mjs";
+import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths.mjs";
 import { SandboxAgentConfig, sandboxAgentDeadlinePolicy } from "./Config.mjs";
 import { resourceHash, sandboxNameFor } from "./resource-names.mjs";
 import { sandboxFor } from "./Bindings.mjs";

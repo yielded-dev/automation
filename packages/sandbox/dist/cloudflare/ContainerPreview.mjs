@@ -1,6 +1,6 @@
 import { NATIVE_LISTENER_PORTS } from "../NativeExecutionLimits.mjs";
-import "../workspace-paths.mjs";
 import { withErrorReportingScope } from "../observability/RuntimeDiagnostics.mjs";
+import "../workspace-paths.mjs";
 import { CAPACITY_NAME, NATIVE_INSTANCE_HEADER, NativeSandboxNamespace, PREVIEW_TOKEN_HEADER, decodeNativeReply, previewTokenHash } from "./NativeSandbox.mjs";
 import { ContainerState, PreviewIndexRecord, PreviewRecord, error, samePreviewRecord, samePreviewRoute } from "./ContainerState.mjs";
 import { ContainerLifecycle } from "./ContainerLifecycle.mjs";

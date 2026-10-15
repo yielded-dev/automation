@@ -1,8 +1,8 @@
 import { toJson } from "../Http.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { NATIVE_RECEIPTS_DIRECTORY, WORKSPACE_DIR } from "../workspace-paths.mjs";
 import { sanitizeCause } from "../observability/FailureDiagnostic.mjs";
 import { HarnessTurnError } from "../harness/Harness.mjs";
+import { NATIVE_RECEIPTS_DIRECTORY, WORKSPACE_DIR } from "../workspace-paths.mjs";
 import { SandboxOperationError } from "./NativeSandbox.mjs";
 import { NATIVE_GATEWAY_SOURCE } from "../harness/NativeGatewaySource.mjs";
 import { Cause, Effect, Option, Predicate, Schema } from "effect";

@@ -1,13 +1,13 @@
 import { agentPhases } from "../Contract.mjs";
 import { toJson } from "../Http.mjs";
 import { SessionSandbox } from "../SessionSandbox.mjs";
-import { REPO_DIR, WORKSPACE_DIR } from "../workspace-paths.mjs";
 import { sanitizeCause, withFailureDiagnostic } from "../observability/FailureDiagnostic.mjs";
 import { reportSanitizedCause } from "../observability/RuntimeDiagnostics.mjs";
 import { HarnessTurnError } from "../harness/Harness.mjs";
 import { RepositoryMutationFence, RepositoryMutationFenceFailure } from "../repository/RepositoryMutationFence.mjs";
 import { transferRepositoryGit } from "../repository/RepositoryGitTransfer.mjs";
 import { annotateSpanAttempts, inMeasure, inPhase, markPoint } from "../tracing/RunSpanCapture.mjs";
+import { REPO_DIR, WORKSPACE_DIR } from "../workspace-paths.mjs";
 import { ArtifactsOperationTimeoutError, ForkNotReadyError, artifactsForkPolicyFromDeadlines, artifactsMainHead, awaitArtifactsForkReady, isForkProvisioning, requestArtifactsFork } from "./ArtifactsFork.mjs";
 import { SandboxAgentConfig, requireRepositorySeed, sandboxAgentDeadlinePolicy } from "./Config.mjs";
 import { resourceHash } from "./resource-names.mjs";
