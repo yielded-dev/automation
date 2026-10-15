@@ -1,0 +1,30 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: "24.21.0"
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - run: vp run check
+      - run: vp run test:e2e:inspect
+      - run: vp run check:packages
+      - name: Verify committed package output
+        run: |
+          git diff --exit-code -- packages/automation/dist packages/sandbox/dist
+          test -z "$(git ls-files --others --exclude-standard -- packages/automation/dist packages/sandbox/dist)"

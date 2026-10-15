@@ -1,0 +1,5 @@
+//#region src/cloudflare/WorkspaceSnapshotPolicy.ts
+const WORKSPACE_SNAPSHOT_HEADROOM = 3e5;
+const WORKSPACE_BASELINE_REFRESH_HEADROOM = 432e6;
+//#endregion
+export { WORKSPACE_BASELINE_REFRESH_HEADROOM, WORKSPACE_SNAPSHOT_HEADROOM };

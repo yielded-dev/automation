@@ -1,0 +1,12 @@
+{
+  "browser": {
+    "browserName": "chromium",
+    "isolated": true,
+    "launchOptions": {
+      "headless": true,
+      "args": ["--no-sandbox", "--host-resolver-rules=MAP localhost 127.0.0.1"]
+    }
+  },
+  "outputDir": "/workspace/.runtime/screenshots",
+  "outputMode": "stdout"
+}

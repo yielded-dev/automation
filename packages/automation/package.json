@@ -1,0 +1,79 @@
+{
+  "name": "@yielded/automation",
+  "version": "0.1.0",
+  "description": "Event investigation, decision reuse and authorized action workflows.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yielded-dev/automation.git",
+    "directory": "packages/automation"
+  },
+  "files": [
+    "src",
+    "dist",
+    "docs"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./github": {
+      "types": "./src/github.ts",
+      "default": "./dist/github.mjs"
+    },
+    "./domain": {
+      "types": "./src/domain.ts",
+      "default": "./dist/domain.mjs"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "default": "./dist/server.mjs"
+    },
+    "./client": {
+      "types": "./src/client.ts",
+      "default": "./dist/client.mjs"
+    },
+    "./cloudflare": {
+      "types": "./src/cloudflare.ts",
+      "default": "./dist/cloudflare.mjs"
+    },
+    "./domain/*": {
+      "types": "./src/domain/*.ts",
+      "default": "./dist/domain/*.mjs"
+    },
+    "./server/*": {
+      "types": "./src/server/*.ts",
+      "default": "./dist/server/*.mjs"
+    },
+    "./migrations/*": "./src/server/migrations/*",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack 'src/**/*.ts' --unbundle --root src --platform node --no-dts --publint",
+    "prepack": "vp run build"
+  },
+  "dependencies": {
+    "uuid": "14.0.1"
+  },
+  "devDependencies": {
+    "@yielded/sandbox": "workspace:*"
+  },
+  "peerDependencies": {
+    "@yielded/sandbox": "^0.1.0",
+    "effect": "^4.0.3",
+    "effect-cf": "^0.56.2"
+  },
+  "peerDependenciesMeta": {
+    "@yielded/sandbox": {
+      "optional": true
+    },
+    "effect-cf": {
+      "optional": true
+    }
+  }
+}
