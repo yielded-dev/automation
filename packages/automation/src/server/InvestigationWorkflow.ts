@@ -360,7 +360,7 @@ export const runInvestigation = Effect.fn("InvestigationWorkflow.run")(function*
   checkpoint: InvestigationCheckpoint | null,
   options?: RunInvestigationOptions,
 ): Effect.fn.Return<Schema.JsonObject, InvestigationWorkflowError, InvestigationWorkflow> {
-  const input = yield* validateCheckpoint(checkpoint ?? initial);
+  const input = yield* validateCheckpoint(checkpoint === null ? initial : checkpoint);
   const workflow = yield* InvestigationWorkflow;
 
   return yield* Effect.acquireUseRelease(
