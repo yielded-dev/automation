@@ -65,7 +65,9 @@
     "test:e2e:publication": "node test/e2e/publication.mjs"
   },
   "dependencies": {
-    "uuid": "14.0.1"
+    "@xstate/effect": "0.1.0-alpha.4",
+    "uuid": "14.0.1",
+    "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
     "@yielded/sandbox": "workspace:*"

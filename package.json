@@ -6,13 +6,60 @@
     "examples/*"
   ],
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./packages/automation/src/index.ts",
+      "default": "./packages/automation/dist/index.mjs"
+    },
+    "./github": {
+      "types": "./packages/automation/src/github.ts",
+      "default": "./packages/automation/dist/github.mjs"
+    },
+    "./domain": {
+      "types": "./packages/automation/src/domain.ts",
+      "default": "./packages/automation/dist/domain.mjs"
+    },
+    "./server": {
+      "types": "./packages/automation/src/server.ts",
+      "default": "./packages/automation/dist/server.mjs"
+    },
+    "./client": {
+      "types": "./packages/automation/src/client.ts",
+      "default": "./packages/automation/dist/client.mjs"
+    },
+    "./cloudflare": {
+      "types": "./packages/automation/src/cloudflare.ts",
+      "default": "./packages/automation/dist/cloudflare.mjs"
+    },
+    "./domain/*": {
+      "types": "./packages/automation/src/domain/*.ts",
+      "default": "./packages/automation/dist/domain/*.mjs"
+    },
+    "./server/*": {
+      "types": "./packages/automation/src/server/*.ts",
+      "default": "./packages/automation/dist/server/*.mjs"
+    },
+    "./postgres": {
+      "types": "./packages/automation/src/postgres.ts",
+      "default": "./packages/automation/dist/postgres.mjs"
+    },
+    "./package.json": "./packages/automation/package.json"
+  },
   "scripts": {
     "typecheck": "\"$(effect-tsgo get-exe-path)\" --noEmit",
     "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp run test",
     "check:packages": "node scripts/check-packages.mjs",
     "build": "vp run -r build",
     "test": "vp run -r test",
-    "test:integration": "node test/integration/launch.mjs"
+    "test:integration": "node test/integration/launch.mjs",
+    "prepare": "vp -C packages/automation run build"
+  },
+  "dependencies": {
+    "@xstate/effect": "0.1.0-alpha.4",
+    "publint": "0.3.25",
+    "uuid": "14.0.1",
+    "vite-plus": "1.1.0",
+    "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260926.1",
@@ -28,11 +75,25 @@
     "effect": "4.0.4",
     "effect-cf": "0.56.2",
     "miniflare": "5.20261006.1-alpha",
-    "publint": "0.3.25",
     "typescript": "7.0.2",
-    "uuid": "14.0.1",
-    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0",
-    "vite-plus": "1.1.0"
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0"
+  },
+  "peerDependencies": {
+    "@yielded/sandbox": "^0.1.0",
+    "drizzle-orm": "^1.0.0-rc.4",
+    "effect": "^4.0.3",
+    "effect-cf": "^0.56.2"
+  },
+  "peerDependenciesMeta": {
+    "@yielded/sandbox": {
+      "optional": true
+    },
+    "effect-cf": {
+      "optional": true
+    },
+    "drizzle-orm": {
+      "optional": true
+    }
   },
   "overrides": {
     "@effect/platform-node-shared": "4.0.3",
