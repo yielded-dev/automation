@@ -1,4 +1,5 @@
 export * from "./domain/errors";
+export * from "./domain/InvestigationWorkflow";
 export * from "./domain/launch";
 export * from "./domain/proof";
 export * from "./domain/RepairExecution";

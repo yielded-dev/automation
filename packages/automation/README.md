@@ -44,6 +44,48 @@ sink from Effect services. `DecisionLifecycle` provides pure transitions to use
 inside the host's existing acceptance transaction. They preserve the original
 accepted request and deadline when an event is replayed.
 
+## Resumable investigations
+
+`@yielded/automation/domain/InvestigationWorkflow` exports the
+`InvestigationCheckpoint` and `InvestigationPlan` schemas,
+`InvestigationWorkflowError`, and `maxDiagnosticRounds` (three).
+`@yielded/automation/server/InvestigationWorkflow` exports the
+`InvestigationWorkflow` service, `investigationMachine`, and `runInvestigation`.
+These modules need no Sandbox, database driver, or host application imports.
+
+Provide the service's collection, planning, read, synthesis, authorization and
+checkpoint operations, then call `runInvestigation(savedCheckpoint)`; pass `null`
+for a new investigation. Each operation returns the complete retained `data`
+object, not a patch. Query objects remain opaque to the workflow. Search and
+lookup plans may contain any number of queries; hosts validate their query kinds,
+permissions and per-plan limits. Diagnostic planning receives rounds one through
+three. An empty diagnostic plan advances to lookup unless `retry: true` requests
+the next available round. Exhausting the third round always advances to lookup.
+
+The machine authorizes every delivery, then resumes the saved phase. It saves
+each plan before reading and each read before starting the next query. Lookup
+has its own `planning_lookup` phase and per-query checkpoints. Synthesis starts
+only after a `synthesizing` checkpoint, and its output is returned only after a
+`completed` checkpoint succeeds. A completed redelivery reauthorizes and returns
+the saved output.
+
+The host must await durable storage in `checkpoint`, serialize deliveries or
+reject stale writes, and reload the last committed checkpoint on redelivery.
+An operation whose following checkpoint fails can run again; successfully saved
+reads are not repeated. Persist only logical checkpoints with safe retained
+evidence, never actor snapshots or credentials. Host operations return
+`InvestigationWorkflowError` with `{ code, cause }`; translate foreign failures
+once and retain their complete Effect `Cause`. The runner preserves typed
+failures, defects, interruption and cleanup failures without squashing them.
+
+Use `runInvestigation(checkpoint, { inspect })` for XState inspection events, or
+inspect the exported machine. `RunInvestigationOptions` types the optional
+callback. Inspection contains the actual actor transitions and retained data.
+Execute through the runner to join in-flight operations and their cleanup when
+the caller interrupts or times out.
+
+## Coding follow-ups
+
 For coding follow-ups, `prepareGithubFollowUp` from
 `@yielded/automation/server/GithubFollowUps` reads live PR feedback, checks and
 conflicts, then asks `GithubFollowUpHost` to atomically accept work under current

@@ -55,9 +55,11 @@
     "prepare": "vp -C packages/automation run build"
   },
   "dependencies": {
+    "@xstate/effect": "0.1.0-alpha.4",
     "publint": "0.3.25",
     "uuid": "14.0.1",
-    "vite-plus": "1.1.0"
+    "vite-plus": "1.1.0",
+    "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "5.20260926.1",
