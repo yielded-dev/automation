@@ -59,4 +59,20 @@ the additional Docker requirements.
 See [package boundaries](docs/architecture.md) for ownership and recovery
 contracts, and [AGENTS.md](AGENTS.md) for contribution and review rules.
 
+## Releases
+
+Once a package exists on npm, configure its
+[npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for GitHub
+organization `yielded-dev`, repository `automation`, workflow filename
+`release.yml`, with `npm publish` allowed and no environment name. Configure it
+near the first authorized release: unused trust expires after two days. No npm
+token secret is needed.
+
+Merge the reviewed version change first, then manually dispatch **Release** on
+`main`, selecting `sandbox` or `automation` and its exact `expected_version` from
+`package.json`. The workflow validates that version, reruns Check's gates, packs
+the generated build with Bun and publishes the tarball with npm 12.2.0 and OIDC.
+It does not change versions. Verify the published version and provenance on npm
+before retrying a failed or interrupted publication.
+
 MIT licensed. See [LICENSE](LICENSE).
