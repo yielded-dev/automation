@@ -16,6 +16,7 @@ code change. Applications supply their own authority, records and resources.
 | `@yielded/automation/server`     | Host-composed repair execution and publication services.                          |
 | `@yielded/automation/client`     | Typed HTTP client and composable Effect atoms.                                    |
 | `@yielded/automation/cloudflare` | Durable execution adapter for coding actions.                                     |
+| `@yielded/automation/postgres`   | Drizzle table definitions for host-owned PostgreSQL migrations.                   |
 
 The root and GitHub intake need Effect, not an execution environment.
 Coding services under `/server` and `/cloudflare` additionally require
@@ -50,9 +51,15 @@ policy. Dispatch its accepted launch through the existing `RunClient` path.
 Publication retains its intent and receipt, reconciles uncertain writes and
 checks the exact PR head before changing it.
 
-The application's migration system applies `@yielded/automation/migrations/001-repairs.sql`.
-Its existing records own product state; the library does not introduce a second
-application database or event queue. Cloudflare hosts can provide
+For PostgreSQL storage, re-export the tables from `@yielded/automation/postgres`
+in your Drizzle schema, then generate, review and apply migrations through your
+application's migration system. Only this entrypoint requires the optional
+`drizzle-orm` peer. The [PostgreSQL example](../../examples/postgres) provides the
+Drizzle Kit configuration and commands. Existing deployments keep their own
+migration history and application-specific constraints.
+
+The application's existing records own product state; the library does not
+introduce a second application database or event queue. Cloudflare hosts can provide
 `RepairSandboxTaskNotifications` to durably accept a task-settled wakeup. Duplicate
 delivery rereads the same accepted task and never replays a completed model turn.
 

@@ -111,7 +111,7 @@ try {
     {},
     {},
     ["packages/automation/test/e2e/github.mjs", "packages/automation/test/e2e/github.worker.ts"],
-    ["@yielded/sandbox", "effect-cf", "@cloudflare/sandbox"],
+    ["@yielded/sandbox", "effect-cf", "@cloudflare/sandbox", "drizzle-orm"],
   );
   run(automation.cwd, process.execPath, ["packages/automation/test/e2e/github.mjs"]);
   console.log("automation: native GitHub fixture passed without sandbox or effect-cf");

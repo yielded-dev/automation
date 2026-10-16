@@ -3,6 +3,7 @@ import { execFileSync } from "node:child_process";
 import { readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 /** Disposable local cluster; no consumer database, environment credentials or shared resources. */
 export async function localPostgres(directory) {
@@ -53,10 +54,18 @@ export async function localPostgres(directory) {
       input,
     );
   assert.equal(sql("SELECT 1"), "1");
+  const url = `postgresql://postgres:synthetic@127.0.0.1:${port}/postgres`;
   return {
     sql,
+    migrate: () =>
+      execFileSync("vp", ["run", "db:migrate"], {
+        cwd: fileURLToPath(new URL("../../examples/postgres/", import.meta.url)),
+        env: { ...process.env, DATABASE_URL: url },
+        timeout: 30_000,
+        stdio: "pipe",
+      }),
     version: run("postgres", ["--version"]),
-    url: `postgresql://postgres:synthetic@127.0.0.1:${port}/postgres`,
+    url,
     statements: async (application) => {
       const lines = (await readFile(log, "utf8")).split("\n");
       return lines.flatMap((line, index) => {

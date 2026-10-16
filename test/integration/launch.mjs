@@ -171,12 +171,7 @@ const record = async (name, run) => {
 try {
   pg = await localPostgres(directory);
   evidence.postgres = pg.version;
-  pg.sql(
-    await readFile(
-      new URL(import.meta.resolve("@yielded/automation/migrations/001-repairs.sql")),
-      "utf8",
-    ),
-  );
+  pg.migrate();
   pg.sql("CREATE TABLE fixture_authority (run_id uuid PRIMARY KEY, allowed boolean NOT NULL)");
   pg.sql(`CREATE TABLE sandbox_workspace_baselines (
     class_identity text NOT NULL, repository text NOT NULL, setup_fingerprint text NOT NULL,

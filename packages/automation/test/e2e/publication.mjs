@@ -34,12 +34,7 @@ let mf;
 try {
   pg = await localPostgres(directory);
   evidence.postgres = pg.version;
-  pg.sql(
-    await readFile(
-      new URL(import.meta.resolve("@yielded/automation/migrations/001-repairs.sql")),
-      "utf8",
-    ),
-  );
+  pg.migrate();
   const outDir = join(directory, "bundle");
   await build({
     cwd: root,

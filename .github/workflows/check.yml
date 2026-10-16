@@ -22,5 +22,9 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       - run: vp run check
+      - name: Verify generated migrations
+        run: |
+          vp -C examples/postgres run db:generate
+          test -z "$(git status --porcelain -- examples/postgres/drizzle)"
       - run: vp run -F @yielded/automation test:e2e
       - run: vp run check:packages

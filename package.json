@@ -2,7 +2,8 @@
   "name": "yielded-automation-workspace",
   "private": true,
   "workspaces": [
-    "packages/*"
+    "packages/*",
+    "examples/*"
   ],
   "type": "module",
   "scripts": {
@@ -23,6 +24,7 @@
     "@types/node": "26.1.2",
     "@yielded/automation": "workspace:*",
     "@yielded/sandbox": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
     "effect": "4.0.4",
     "effect-cf": "0.56.2",
     "miniflare": "5.20261006.1-alpha",
