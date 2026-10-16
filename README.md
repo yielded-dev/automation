@@ -31,6 +31,10 @@ never automatically merged or deployed.
 The packages are being prepared for their first npm release. Development installs
 link them as workspaces; see the package READMEs for public imports and composition.
 
+Try the [standalone coding agent](examples/agent-sandbox): a Yielded Agent calls
+a tool to run Sandbox, save a code change and recover its result. It needs no
+Automation dependency.
+
 ## Development
 
 Use Bun through [Vite+](https://viteplus.dev):

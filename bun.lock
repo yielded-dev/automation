@@ -25,6 +25,22 @@
         "vite-plus": "1.1.0",
       },
     },
+    "examples/agent-sandbox": {
+      "name": "@yielded/example-agent-sandbox",
+      "dependencies": {
+        "@effect/ai-openai": "4.0.3",
+        "@effect/sql-d1": "4.0.3",
+        "@effect/sql-sqlite-do": "4.0.3",
+        "@yielded/agent": "0.1.0-beta.185",
+        "@yielded/sandbox": "workspace:*",
+        "effect": "4.0.4",
+        "effect-cf": "0.56.2",
+      },
+      "devDependencies": {
+        "miniflare": "5.20261006.1-alpha",
+        "vite-plus": "1.1.0",
+      },
+    },
     "examples/postgres": {
       "name": "@yielded/example-automation-postgres",
       "dependencies": {
@@ -101,6 +117,8 @@
     "@cspotcode/source-map-support": ["@cspotcode/source-map-support@0.8.1", "", { "dependencies": { "@jridgewell/trace-mapping": "0.3.9" } }, "sha512-IchNf6dN4tHoMFIn/7OE8LWZ19Y6q/67Bmf6vnGREv8RSbBVb9LPJxEcnwrcwX6ixSvaiGoomAUvu4YSxXrVgw=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.12.1", "", {}, "sha512-yHwomvolVafvUXhy5TdiJVkuNCxXn+bKOs2aWiWEQh/5YaV97Oa/abJz3dmx7lxgIUsUlS1Jl4mEfvJPo3YsVw=="],
+
+    "@effect/ai-openai": ["@effect/ai-openai@4.0.3", "", { "peerDependencies": { "effect": "^4.0.3" } }, "sha512-jdD/5uryLdlnf2XEUe1yAPSKzsYGpgBX65azWAaLtcMPk4FlP5xq3JnLfVOtOLAgiRMJ9RaMmd/7GVUeW5q3hA=="],
 
     "@effect/platform-node": ["@effect/platform-node@4.0.3", "", { "dependencies": { "@effect/platform-node-shared": "^4.0.3", "undici": "^8.11.2" }, "peerDependencies": { "effect": "^4.0.3", "redis": ">=5.0.0 <7.0.0" } }, "sha512-ctvREpC1EzRVsOm0JyIzYHajAQScFaec6Gl+M7TEIpEqdmmx6Ju11Um92EA/CE2KBfY5Fp1QWlqTkK6lOL7tqg=="],
 
@@ -450,7 +468,11 @@
 
     "@voidzero-dev/vite-plus-win32-x64-msvc": ["@voidzero-dev/vite-plus-win32-x64-msvc@1.1.0", "", { "os": "win32", "cpu": "x64" }, "sha512-K9k77Mj/TszFHKsZePKsyfsIPo8HbjKeJUxaSJ6YZKAmSh9QvDsMFe4i4/HALwyii/PR1EQ8N0iN1nf9cNimGQ=="],
 
+    "@yielded/agent": ["@yielded/agent@0.1.0-beta.185", "", { "peerDependencies": { "effect": "^4.0.3" } }, "sha512-ZzeJC5QneJ1F4+Gk7DJjVfukoF2f7JpuBI3FIhdM+wvAqIgVQB500cgOxD6Geh+eIR54fInOGzqFE5PM06LmaA=="],
+
     "@yielded/automation": ["@yielded/automation@workspace:packages/automation"],
+
+    "@yielded/example-agent-sandbox": ["@yielded/example-agent-sandbox@workspace:examples/agent-sandbox"],
 
     "@yielded/example-automation-postgres": ["@yielded/example-automation-postgres@workspace:examples/postgres"],
 
