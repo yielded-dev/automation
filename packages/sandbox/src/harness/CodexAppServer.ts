@@ -463,7 +463,7 @@ export const runCodexAppServerTurn = Effect.fn("CodexAppServer.runTurn")(functio
         const candidates =
           checkpoint.turnId === null
             ? result.thread.turns.filter(
-                (turn, index, turns) =>
+                (_turn, index, turns) =>
                   checkpoint.previousTurnId === null ||
                   index >
                     turns.findIndex((candidate) => candidate.id === checkpoint.previousTurnId),
