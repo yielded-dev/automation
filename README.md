@@ -28,8 +28,9 @@ records, credentials and provisioned resources. Classification proposes work;
 host policy authorizes it. Generated pull requests are proposed changes and are
 never automatically merged or deployed.
 
-The packages are being prepared for their first npm release. Development installs
-link them as workspaces; see the package READMEs for public imports and composition.
+[@yielded/sandbox@0.1.0](https://www.npmjs.com/package/@yielded/sandbox/v/0.1.0)
+is available on npm; `@yielded/automation` is not yet released. Development installs
+link both as workspaces; see the package READMEs for public imports and composition.
 
 Try the [standalone coding agent](examples/agent-sandbox): a Yielded Agent calls
 a tool to run Sandbox, save a code change and recover its result. It needs no
