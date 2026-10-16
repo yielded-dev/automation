@@ -1,0 +1,44 @@
+{
+  "name": "yielded-automation-workspace",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "examples/*"
+  ],
+  "type": "module",
+  "scripts": {
+    "typecheck": "\"$(effect-tsgo get-exe-path)\" --noEmit",
+    "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp run test",
+    "check:packages": "node scripts/check-packages.mjs",
+    "build": "vp run -r build",
+    "test": "vp run -r test",
+    "test:integration": "node test/integration/launch.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260926.1",
+    "@effect/platform-node": "4.0.3",
+    "@effect/sql-d1": "4.0.3",
+    "@effect/sql-pg": "4.0.3",
+    "@effect/sql-sqlite-do": "4.0.3",
+    "@effect/tsgo": "0.45.0",
+    "@types/node": "26.1.2",
+    "@yielded/automation": "workspace:*",
+    "@yielded/sandbox": "workspace:*",
+    "drizzle-orm": "1.0.0-rc.4",
+    "effect": "4.0.4",
+    "effect-cf": "0.56.2",
+    "miniflare": "5.20261006.1-alpha",
+    "publint": "0.3.25",
+    "typescript": "7.0.2",
+    "uuid": "14.0.1",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0",
+    "vite-plus": "1.1.0"
+  },
+  "overrides": {
+    "@effect/platform-node-shared": "4.0.3",
+    "@effect/sql-d1": "4.0.3",
+    "@effect/sql-sqlite-do": "4.0.3",
+    "effect": "4.0.4"
+  },
+  "packageManager": "bun@1.4.2"
+}

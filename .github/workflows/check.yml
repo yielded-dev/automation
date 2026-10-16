@@ -1,0 +1,30 @@
+name: Check
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: voidzero-dev/setup-vp@v1.21.1
+        with:
+          node-version: "24.21.0"
+          run-install: false
+      - run: vp install --frozen-lockfile
+      - run: vp run check
+      - name: Verify generated migrations
+        run: |
+          vp -C examples/postgres run db:generate
+          test -z "$(git status --porcelain -- examples/postgres/drizzle)"
+      - run: vp run -F @yielded/automation test:e2e
+      - run: vp run check:packages

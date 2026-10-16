@@ -1,0 +1,50 @@
+{
+  "name": "@yielded/sandbox",
+  "version": "0.1.0",
+  "description": "Durable agent workspaces with repositories, tools, checkpoints and Cloudflare execution.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yielded-dev/automation.git",
+    "directory": "packages/sandbox"
+  },
+  "files": [
+    "src",
+    "dist",
+    "container"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./dist/index.mjs"
+    },
+    "./cloudflare": {
+      "types": "./src/cloudflare/index.ts",
+      "default": "./dist/cloudflare/index.mjs"
+    },
+    "./*": {
+      "types": "./src/*.ts",
+      "default": "./dist/*.mjs"
+    },
+    "./container/*": "./container/*",
+    "./package.json": "./package.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "vp pack",
+    "prepack": "vp run build",
+    "test": "vp test --run",
+    "test:e2e": "node test/e2e/readiness.mjs",
+    "test:e2e:git": "node test/e2e/git-history.mjs"
+  },
+  "dependencies": {
+    "@cloudflare/sandbox": "1.0.0"
+  },
+  "peerDependencies": {
+    "effect": "^4.0.3",
+    "effect-cf": "^0.56.2"
+  }
+}
