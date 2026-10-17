@@ -35,17 +35,36 @@ import { SandboxAgentArtifacts } from "@yielded/sandbox/cloudflare/Bindings";
 const Input = Schema.Struct({
   launch: RunLaunch,
   publication: RepairPublicationRequest,
-  remoteHead: Schema.String,
+  remoteHead: Schema.NullOr(Schema.String),
+  pullRequest: Schema.optionalKey(Schema.Literals(["missing", "draft", "ready"])),
   mode: Schema.Literals([
     "direct",
     "publish",
+    "reconcile",
     "abandon",
     "retire",
     "follow-up-review",
     "follow-up-checks",
   ]),
-  fault: Schema.Literals(["none", "installation", "mixed", "cancel-pending", "cancel-mixed"]),
+  fault: Schema.Literals([
+    "none",
+    "installation",
+    "mixed",
+    "cancel-pending",
+    "cancel-mixed",
+    "create-response-lost",
+    "create-draft-mismatch",
+  ]),
 });
+const CreatePullRequest = Schema.fromJsonString(
+  Schema.Struct({
+    title: Schema.String,
+    head: Schema.String,
+    base: Schema.String,
+    draft: Schema.Boolean,
+    body: Schema.String,
+  }),
+);
 const content = { kind: "repair" as const, title: "Synthetic repair", body: "Synthetic evidence" };
 const describe = (cause: Cause.Cause<unknown>) =>
   cause.reasons.map((reason) => {
@@ -70,8 +89,24 @@ export default {
   async fetch(request: Request, env: { DATABASE: Hyperdrive }) {
     const input = Schema.decodeUnknownSync(Input)(await request.json());
     const reports: Array<{ operation: string; reasons: ReturnType<typeof describe> }> = [];
-    const requests: Array<{ method: string; path: string }> = [];
+    const requests: Array<{ method: string; path: string; body?: unknown }> = [];
     const cancellations: Array<unknown> = [];
+    const branch =
+      input.launch.launch.rebase?.branch ??
+      `repair/${input.launch.origin.incidentId}-${input.launch.launch.continuation?.publication?.attemptId ?? input.launch.origin.attemptId}`;
+    const fixturePullRequest = {
+      number: 1,
+      title: content.title,
+      body: content.body,
+      html_url: "https://github.com/fixture/project/pull/1",
+      state: "open",
+      draft: input.pullRequest === "draft",
+      labels: [{ name: "bot-repair" }],
+      head: { sha: input.remoteHead, ref: branch, repo: { id: 1 } },
+      base: { ref: "main", repo: { id: 1 } },
+      user: { login: "fixture[bot]" },
+    };
+    let pullRequest = input.pullRequest === "missing" ? undefined : fixturePullRequest;
     const database = PgClient.layer({
       url: Redacted.make(env.DATABASE.connectionString),
       maxConnections: 1,
@@ -92,7 +127,7 @@ export default {
           ),
       }),
       // Host policy, foreign GitHub and immutable native snapshot ports are synthetic.
-      // Missing mutation/model ports fail rather than imitating a container.
+      // Native mutations fail rather than imitating a container.
       Layer.mock(GithubAppAuth, {
         availability: "configured",
         repositoryInstallation: () =>
@@ -122,6 +157,8 @@ export default {
       Layer.mock(RepairPresentation, { publicationContent: () => Effect.succeed(content) }),
       Layer.mock(SandboxAgentArtifacts, { definition: { binding: "UNUSED_ARTIFACTS" } }),
       Layer.mock(RepairSandboxTaskClient, {
+        native: () =>
+          Effect.fail(RepairSandboxTaskTransportError.make({ operation: "fixture-no-container" })),
         cancel: (id, commandId, admission, options) => {
           cancellations.push({ id, commandId, admission, options });
           if (input.fault === "cancel-mixed")
@@ -162,31 +199,46 @@ export default {
       }),
       Layer.succeed(
         HttpClient.HttpClient,
-        HttpClient.make((request, url) => {
-          requests.push({ method: request.method, path: url.pathname });
-          if (request.method !== "GET") return Effect.die("Unexpected GitHub mutation");
-          const body = url.pathname.endsWith("/pulls")
-            ? [
-                {
-                  number: 1,
-                  title: content.title,
-                  body: content.body,
-                  html_url: "https://github.com/fixture/project/pull/1",
-                  state: "open",
-                  draft: false,
-                  labels: [{ name: "bot-repair" }],
-                  head: { sha: input.remoteHead, ref: "repair/fixture", repo: { id: 1 } },
-                  base: { ref: "main", repo: { id: 1 } },
-                  user: { login: "fixture[bot]" },
-                },
-              ]
-            : url.pathname.endsWith("/git/ref/heads/repair/fixture")
-              ? { object: { sha: input.remoteHead } }
-              : undefined;
-          return body === undefined
-            ? Effect.die("Unexpected GitHub read")
-            : Effect.succeed(HttpClientResponse.fromWeb(request, Response.json(body)));
-        }),
+        HttpClient.make(
+          Effect.fnUntraced(function* (request, url) {
+            const sent: (typeof requests)[number] = { method: request.method, path: url.pathname };
+            requests.push(sent);
+            if (request.method === "POST" && url.pathname.endsWith("/pulls")) {
+              if (request.body._tag !== "Uint8Array")
+                return yield* Effect.die("Expected JSON PR creation");
+              const body = yield* Schema.decodeEffect(CreatePullRequest)(
+                new TextDecoder().decode(request.body.body),
+              ).pipe(Effect.orDie);
+              sent.body = body;
+              pullRequest = {
+                ...fixturePullRequest,
+                title: body.title,
+                body: body.body,
+                draft: input.fault === "create-draft-mismatch" ? !body.draft : body.draft,
+                head: { ...fixturePullRequest.head, ref: body.head },
+                base: { ...fixturePullRequest.base, ref: body.base },
+              };
+              return HttpClientResponse.fromWeb(
+                request,
+                input.fault === "create-response-lost"
+                  ? new Response(null, { status: 502 })
+                  : Response.json(pullRequest),
+              );
+            }
+            if (request.method !== "GET") return yield* Effect.die("Unexpected GitHub mutation");
+            if (url.pathname.endsWith(`/git/ref/heads/${branch}`) && input.remoteHead === null)
+              return HttpClientResponse.fromWeb(request, new Response(null, { status: 404 }));
+            const body = url.pathname.endsWith("/pulls")
+              ? pullRequest === undefined
+                ? []
+                : [pullRequest]
+              : url.pathname.endsWith(`/git/ref/heads/${branch}`)
+                ? { object: { sha: input.remoteHead } }
+                : undefined;
+            if (body === undefined) return yield* Effect.die("Unexpected GitHub read");
+            return HttpClientResponse.fromWeb(request, Response.json(body));
+          }),
+        ),
       ),
     );
     const operation = Effect.gen(function* () {
@@ -275,8 +327,17 @@ export default {
         );
       }
       if (input.mode === "direct")
-        return yield* publishRepository(input.publication.candidateSha, content);
+        return yield* publishRepository(
+          input.publication.candidateSha,
+          content,
+          false,
+          input.publication.draft,
+        );
       const client = yield* RunClient;
+      if (input.mode === "reconcile") {
+        yield* client.reconcilePublication(input.launch.runId);
+        return yield* readPublication;
+      }
       if (input.mode === "abandon")
         return yield* client.abandonPublication(input.launch.runId, "fixture-abandonment");
       if (input.mode === "retire") return yield* client.retire(input.launch, "deadline");

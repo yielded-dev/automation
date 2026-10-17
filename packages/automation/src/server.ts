@@ -1,10 +1,9 @@
 export { RunClient } from "./server/RunClient";
 export {
-  InvestigationWorkflow,
-  investigationMachine,
-  runInvestigation,
-  type RunInvestigationOptions,
-} from "./server/InvestigationWorkflow";
+  makeInvestigator,
+  InvestigationStore,
+  type InvestigationInput,
+} from "./server/Investigation";
 export { RepairsHandlers, makeRepairsHandlers } from "./server/RepairsHandlers";
 export { RunConfig } from "./server/RunConfig";
 export { RepairAuthorization } from "./server/RepairAuthorization";
