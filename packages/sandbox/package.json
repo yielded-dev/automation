@@ -9,6 +9,7 @@
     "directory": "packages/sandbox"
   },
   "files": [
+    "CHANGELOG.md",
     "src",
     "dist",
     "container"

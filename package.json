@@ -46,6 +46,10 @@
     "./package.json": "./packages/automation/package.json"
   },
   "scripts": {
+    "changeset": "changeset",
+    "changeset:version": "changeset version",
+    "ci:version": "vp run changeset:version && vp install --ignore-scripts",
+    "release:publish": "changeset publish",
     "typecheck": "\"$(effect-tsgo get-exe-path)\" --noEmit",
     "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp run test",
     "check:packages": "node scripts/check-packages.mjs",
@@ -62,6 +66,8 @@
     "xstate": "6.0.0-alpha.61"
   },
   "devDependencies": {
+    "@changesets/changelog-github": "1.0.1",
+    "@changesets/cli": "3.0.3",
     "@cloudflare/workers-types": "5.20260926.1",
     "@effect/platform-node": "4.0.3",
     "@effect/sql-d1": "4.0.3",

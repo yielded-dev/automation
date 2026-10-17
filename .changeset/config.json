@@ -1,0 +1,21 @@
+{
+  "$schema": "https://unpkg.com/@changesets/config@4.0.1/schema.json",
+  "changelog": [
+    "@changesets/changelog-github",
+    {
+      "repo": "yielded-dev/automation"
+    }
+  ],
+  "commit": false,
+  "format": "oxfmt",
+  "fixed": [["@yielded/automation", "@yielded/sandbox"]],
+  "linked": [],
+  "access": "public",
+  "baseBranch": "main",
+  "privatePackages": {
+    "version": false,
+    "tag": false
+  },
+  "updateInternalDependencies": "patch",
+  "ignore": []
+}

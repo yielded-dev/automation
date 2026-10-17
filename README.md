@@ -80,18 +80,25 @@ contracts, and [AGENTS.md](AGENTS.md) for contribution and review rules.
 
 ## Releases
 
-Once a package exists on npm, configure its
-[npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for GitHub
-organization `yielded-dev`, repository `automation`, workflow filename
-`release.yml`, with `npm publish` allowed and no environment name. Configure it
-near the first authorized release: unused trust expires after two days. No npm
-token secret is needed.
+Automation and Sandbox share a stable version. Add a consumer-facing release note
+with `vp run changeset`; inspect the planned versions with `vp run changeset status`.
+Main updates a `chore: version packages` PR with the versions, changelogs and Bun
+lockfile. Merging that PR runs the release checks, publishes through npm trusted
+publishing, and creates Git tags and GitHub releases.
 
-Merge the reviewed version change first, then manually dispatch **Release** on
-`main`, selecting `sandbox` or `automation` and its exact `expected_version` from
-`package.json`. The workflow validates that version, reruns Check's gates, packs
-the generated build with Bun and publishes the tarball with npm 12.2.0 and OIDC.
-It does not change versions. Verify the published version and provenance on npm
-before retrying a failed or interrupted publication.
+To enable the workflow:
+
+1. Install the Yielded release GitHub App with contents and pull-request write
+   access, and configure `RELEASES_GH_APP_ID` and `RELEASES_GH_APP_PRIVATE_KEY` as
+   repository secrets. App-authored version PRs run the normal checks.
+2. Configure each package's
+   [npm trusted publisher](https://docs.npmjs.com/trusted-publishers/) for
+   `yielded-dev/automation`, workflow `release.yml`, with publishing allowed and
+   no environment name. No npm token secret is needed.
+3. Set the repository variable `RELEASE_ENABLED=true`.
+
+Use `vp run ci:version` to generate the same version changes locally. Publishing
+requires a reviewed version PR; verify npm versions and provenance before retrying
+an interrupted release.
 
 MIT licensed. See [LICENSE](LICENSE).
