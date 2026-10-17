@@ -67,7 +67,7 @@ try {
       },
     }),
   );
-  const create = (retained = false, retired = false) => {
+  const create = (retained = false, retired = false, newPullRequest = false) => {
     const attemptId = randomUUID();
     const launch = {
       runId: uuidV5(JSON.stringify(["kommunikasie-repair", "run", attemptId]), uuidV5.URL),
@@ -92,7 +92,9 @@ try {
         evidenceHash: "d".repeat(64),
         allowedScopes: ["host_publication"],
         promptPolicy: "fixture",
-        rebase: { branch: "repair/fixture", headSha: expected, pullRequestNumber: 1 },
+        ...(newPullRequest
+          ? {}
+          : { rebase: { branch: "repair/fixture", headSha: expected, pullRequestNumber: 1 } }),
       },
     };
     const state = {
@@ -115,6 +117,7 @@ try {
     fault = "none",
     remoteHead = actual,
     candidateSha = candidate,
+    { draft, pullRequest } = {},
   ) => {
     const response = await mf.dispatchFetch("http://localhost/", {
       method: "POST",
@@ -124,8 +127,10 @@ try {
         mode,
         fault,
         remoteHead,
+        pullRequest,
         publication: {
           candidateSha,
+          draft,
           summary: {
             title: content.title,
             problem: "Synthetic problem",
@@ -159,6 +164,125 @@ try {
     }
     console.log(JSON.stringify(item));
   };
+  for (const draft of [undefined, false, true]) {
+    await record(`publication-draft-${draft ?? "default"}`, async (item) => {
+      const launch = create(false, false, true);
+      // Stop at the unavailable native port, after the first intent has been accepted.
+      item.accepted = await request(launch, "publish", "none", null, candidate, {
+        draft,
+        pullRequest: "missing",
+      });
+      assert.deepEqual(item.accepted.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+      const acceptedIntent = JSON.stringify({
+        sourceHead: candidate,
+        previousHead: null,
+        content,
+        ...(draft === undefined ? {} : { draft }),
+      });
+      assert.equal(pending(launch), `${acceptedIntent}|`);
+      // Recover a completed push, ignoring a retry's changed publication choice.
+      item.created = await request(
+        launch,
+        "publish",
+        draft === true ? "create-response-lost" : "none",
+        candidate,
+        candidate,
+        { draft: !draft, pullRequest: "missing" },
+      );
+      assert.equal(item.created.exit, "Success", JSON.stringify(item.created));
+      assert.deepEqual(
+        item.created.requests.filter((request) => request.method !== "GET"),
+        [
+          {
+            method: "POST",
+            path: "/repos/fixture/project/pulls",
+            body: {
+              title: content.title,
+              head: `repair/${launch.origin.incidentId}-${launch.origin.attemptId}`,
+              base: "main",
+              draft: draft ?? false,
+              body: content.body,
+            },
+          },
+        ],
+      );
+      const hash = createHash("sha256").update(acceptedIntent).digest("hex");
+      assert.equal(item.created.value.contentHash, hash);
+      assert.equal(
+        item.created.value.id,
+        uuidV5(
+          JSON.stringify(["kommunikasie-repair", "publication", launch.runId, candidate, hash]),
+          uuidV5.URL,
+        ),
+      );
+      assert.equal(
+        pg.sql(`SELECT intent FROM repair_publication WHERE run_id=${quote(launch.runId)}`),
+        acceptedIntent,
+      );
+      item.replay = await request(launch, "publish", "installation", candidate, candidate, {
+        draft: !draft,
+      });
+      assert.equal(item.replay.exit, "Success");
+      assert.deepEqual(item.replay.value, item.created.value);
+      assert.deepEqual(item.replay.requests, []);
+    });
+  }
+  await record("draft-does-not-convert-existing-pr", async (item) => {
+    const launch = create();
+    item.direct = await request(launch, "direct", "none", expected, candidate, { draft: true });
+    item.client = await request(launch, "publish", "none", expected, candidate, { draft: true });
+    assert.deepEqual(item.direct.reasons, [{ kind: "Fail", tag: "PublicationError" }]);
+    assert.deepEqual(item.client.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+    assert.equal(pending(launch), "");
+    assert.ok([...item.direct.requests, ...item.client.requests].every((r) => r.method === "GET"));
+  });
+  for (const pullRequest of ["draft", "ready"]) {
+    await record(`draft-reconciliation-${pullRequest}`, async (item) => {
+      const launch = create(true, true);
+      const acceptedIntent = JSON.stringify({
+        sourceHead: candidate,
+        previousHead: expected,
+        content,
+        draft: true,
+      });
+      pg.sql(`UPDATE repair_publication SET intent=${quote(acceptedIntent)}
+        WHERE run_id=${quote(launch.runId)}`);
+      item.result = await request(launch, "reconcile", "none", candidate, candidate, {
+        draft: false,
+        pullRequest,
+      });
+      assert.ok(item.result.requests.every((request) => request.method === "GET"));
+      if (pullRequest === "draft") {
+        assert.equal(item.result.exit, "Success", JSON.stringify(item.result));
+        assert.equal(item.result.value.sourceHead, candidate);
+        assert.equal(
+          item.result.value.contentHash,
+          createHash("sha256").update(acceptedIntent).digest("hex"),
+        );
+      } else {
+        assert.deepEqual(item.result.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+        assert.equal(pending(launch), `${acceptedIntent}|`);
+      }
+    });
+  }
+  await record("draft-create-requires-matching-response", async (item) => {
+    const launch = create(false, false, true);
+    const acceptedIntent = JSON.stringify({
+      sourceHead: candidate,
+      previousHead: null,
+      content,
+      draft: true,
+    });
+    pg.sql(`INSERT INTO repair_publication(run_id, source_head, kind, intent)
+      VALUES (${quote(launch.runId)}, ${quote(candidate)}, 'repair', ${quote(acceptedIntent)})`);
+    item.result = await request(launch, "publish", "create-draft-mismatch", candidate, candidate, {
+      pullRequest: "missing",
+    });
+    assert.deepEqual(item.result.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+    assert.equal(pending(launch), `${acceptedIntent}|`);
+    assert.equal(item.result.requests.filter((request) => request.method === "POST").length, 1);
+    assert.ok(item.result.requests.every((request) => request.method !== "PATCH"));
+  });
   await record("pre-intent-head-conflict", async (item) => {
     const launch = create();
     item.direct = await request(launch, "direct");

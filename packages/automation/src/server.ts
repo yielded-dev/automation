@@ -1,4 +1,9 @@
 export { RunClient } from "./server/RunClient";
+export {
+  makeInvestigator,
+  InvestigationStore,
+  type InvestigationInput,
+} from "./server/Investigation";
 export { RepairsHandlers, makeRepairsHandlers } from "./server/RepairsHandlers";
 export { RunConfig } from "./server/RunConfig";
 export { RepairAuthorization } from "./server/RepairAuthorization";

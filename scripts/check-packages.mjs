@@ -13,9 +13,9 @@ import {
 import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-// Run after the workspace build. Only packed files and copied public fixtures enter consumers.
+// Run after the workspace build. Consumers cannot resolve this checkout's dependencies.
 const root = fileURLToPath(new URL("../", import.meta.url));
 const args = process.argv.slice(process.argv[2] === "--" ? 3 : 2);
 assert.ok(args.length <= 1, "Usage: node scripts/check-packages.mjs [local container image]");
@@ -34,7 +34,7 @@ const run = (cwd, command, args) =>
 const versions = (...names) =>
   Object.fromEntries(
     names.map((name) => {
-      const version = manifest.devDependencies[name];
+      const version = manifest.dependencies?.[name] ?? manifest.devDependencies[name];
       assert.ok(version && !version.startsWith("workspace:"), `Missing tool pin: ${name}`);
       return [name, version];
     }),
@@ -48,13 +48,16 @@ const tools = versions(
   "@types/node",
 );
 
-async function consumer(name, dependencies, devDependencies, fixtures, absent) {
-  const cwd = join(directory, name);
+async function consumer(name, dependencies, devDependencies, fixtures, absent, gitSource) {
+  const cwd = join(directory, `${name}${gitSource ? "-git" : ""}`);
   await mkdir(cwd);
-  const tarball = join(directory, `${name}.tgz`);
+  let dependency = gitSource;
   const source = join(root, "packages", name);
-  await stat(join(source, "dist", "index.mjs"));
-  run(source, "bun", ["pm", "pack", "--ignore-scripts", "--filename", tarball, "--quiet"]);
+  if (!dependency) {
+    dependency = join(directory, `${name}.tgz`);
+    await stat(join(source, "dist", "index.mjs"));
+    run(source, "bun", ["pm", "pack", "--ignore-scripts", "--filename", dependency, "--quiet"]);
+  }
   await writeFile(
     join(cwd, "package.json"),
     JSON.stringify({
@@ -62,9 +65,10 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent) {
       type: "module",
       packageManager: manifest.packageManager,
       scripts: { typecheck: manifest.scripts.typecheck },
-      dependencies: { [`@yielded/${name}`]: tarball, ...versions("effect"), ...dependencies },
+      dependencies: { [`@yielded/${name}`]: dependency, ...versions("effect"), ...dependencies },
       devDependencies: { ...tools, ...devDependencies },
       overrides: manifest.overrides,
+      trustedDependencies: gitSource ? [`@yielded/${name}`] : [],
     }),
   );
   for (const fixture of fixtures) {
@@ -88,7 +92,7 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent) {
       include: ["packages/*/test/e2e/**/*.ts", "test/fixtures/**/*.ts"],
     }),
   );
-  run(cwd, "vp", ["install", "--ignore-scripts"]);
+  run(cwd, "vp", gitSource ? ["install"] : ["install", "--ignore-scripts"]);
   const require = createRequire(join(cwd, "package.json"));
   const entry = await realpath(require.resolve(`@yielded/${name}`));
   assert.ok(entry.startsWith(`${cwd}${sep}`), "Package must resolve inside its isolated consumer");
@@ -104,6 +108,39 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent) {
   return { cwd, require };
 }
 
+async function gitSnapshot() {
+  const source = join(directory, "git-source");
+  await mkdir(source);
+  const files = execFileSync("git", ["ls-files", "-z"], { cwd: root, encoding: "utf8" })
+    .split("\0")
+    .filter(Boolean);
+  for (const file of files) {
+    const destination = join(source, file);
+    await mkdir(dirname(destination), { recursive: true });
+    await copyFile(join(root, file), destination);
+  }
+  await assert.rejects(stat(join(source, "packages/automation/dist")), { code: "ENOENT" });
+  run(source, "git", ["init", "--quiet"]);
+  run(source, "git", ["add", "."]);
+  run(source, "git", [
+    "-c",
+    "user.name=Package fixture",
+    "-c",
+    "user.email=fixture@example.invalid",
+    "-c",
+    "commit.gpgsign=false",
+    "commit",
+    "--quiet",
+    "-m",
+    "Source package fixture",
+  ]);
+  const revision = execFileSync("git", ["rev-parse", "HEAD"], {
+    cwd: source,
+    encoding: "utf8",
+  }).trim();
+  return `git+${pathToFileURL(source).href}#${revision}`;
+}
+
 console.log(`Independent package consumers: ${directory}`);
 try {
   const automation = await consumer(
@@ -115,6 +152,35 @@ try {
   );
   run(automation.cwd, process.execPath, ["packages/automation/test/e2e/github.mjs"]);
   console.log("automation: native GitHub fixture passed without sandbox or effect-cf");
+
+  const automationManifest = JSON.parse(
+    await readFile(join(root, "packages/automation/package.json"), "utf8"),
+  );
+  const prefix = (value) =>
+    typeof value === "string"
+      ? `./packages/automation/${value.slice(2)}`
+      : Object.fromEntries(Object.entries(value).map(([key, target]) => [key, prefix(target)]));
+  assert.deepEqual(
+    manifest.exports,
+    Object.fromEntries(
+      Object.entries(automationManifest.exports).map(([key, target]) => [key, prefix(target)]),
+    ),
+  );
+  assert.deepEqual(manifest.peerDependencies, automationManifest.peerDependencies);
+  assert.deepEqual(manifest.peerDependenciesMeta, automationManifest.peerDependenciesMeta);
+  for (const [name, version] of Object.entries(automationManifest.dependencies)) {
+    assert.equal(manifest.dependencies[name], version);
+  }
+  const gitAutomation = await consumer(
+    "automation",
+    {},
+    {},
+    ["packages/automation/test/e2e/github.mjs", "packages/automation/test/e2e/github.worker.ts"],
+    ["@yielded/sandbox", "effect-cf", "@cloudflare/sandbox", "drizzle-orm"],
+    await gitSnapshot(),
+  );
+  run(gitAutomation.cwd, process.execPath, ["packages/automation/test/e2e/github.mjs"]);
+  console.log("automation: source Git pin prepared and passed the native GitHub fixture");
 
   const sandbox = await consumer(
     "sandbox",

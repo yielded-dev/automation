@@ -31,6 +31,8 @@ export type RepairOrigin = typeof RepairOrigin.Type;
 export const RepairPublicationRequest = Schema.Struct({
   candidateSha: RepositoryCommitSha,
   summary: RepairSummary,
+  /** Defaults to false. The first accepted publication pins this choice for retries. */
+  draft: Schema.optionalKey(Schema.Boolean),
 });
 export type RepairPublicationRequest = typeof RepairPublicationRequest.Type;
 

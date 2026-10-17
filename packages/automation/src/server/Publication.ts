@@ -1,4 +1,4 @@
-import { Cause, Clock, DateTime, Effect, Match, Option, Redacted, Schema } from "effect";
+import { Cause, Clock, DateTime, Effect, Option, Redacted, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import { SqlClient } from "effect/sql";
@@ -7,7 +7,7 @@ import { reportSanitizedCause } from "./RepairErrorReporter";
 import { RunConfig } from "./RunConfig";
 import { ConflictError } from "../domain/errors";
 import { contentHash } from "./hash";
-import { RepairPublicationReceipt, type RepairPublicationRequest } from "../domain/proof";
+import { RepairPublicationReceipt, RepairPublicationRequest } from "../domain/proof";
 import { repairIdentity } from "../domain/launch";
 import { SessionSandbox } from "@yielded/sandbox/SessionSandbox";
 import { REPO_DIR } from "@yielded/sandbox/workspace-paths";
@@ -60,6 +60,7 @@ const PublicationIntent = Schema.Struct({
     body: Schema.String,
     validationReceiptId: Schema.optionalKey(Schema.String),
   }),
+  draft: RepairPublicationRequest.fields.draft,
 });
 const IntentJson = Schema.fromJsonString(PublicationIntent);
 const PublicationJson = Schema.fromJsonString(RepairPublicationReceipt);
@@ -121,7 +122,12 @@ const matchesPublicationBody = (body: string | null, expected: string) =>
 
 /** Credentials are used only in a dedicated checkout that never executes repository code. */
 export const publishRepository = Effect.fn("RepairPublication.publish")(
-  function* (sourceHead: string, content: PublicationContent, reconcileOnly = false) {
+  function* (
+    sourceHead: string,
+    content: PublicationContent,
+    reconcileOnly = false,
+    requestedDraft?: boolean,
+  ) {
     const state = yield* readRunState;
 
     if (!state || (!reconcileOnly && !(yield* authorizePublication)))
@@ -143,6 +149,8 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
       previous?.intent === null || previous?.intent === undefined
         ? undefined
         : yield* Schema.decodeEffect(IntentJson)(previous.intent);
+    // Omission in an accepted intent means false, even if a retry requests a draft.
+    const draft = previousIntent === undefined ? requestedDraft : previousIntent.draft;
 
     // An acknowledged retry reads its receipt without reopening the external write.
     if (
@@ -235,7 +243,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
     if (
       pullRequest !== undefined &&
       (pullRequest.user.login !== bot.name ||
-        pullRequest.draft ||
+        pullRequest.draft !== (draft ?? false) ||
         pullRequest.head.repo.id !== repositoryId ||
         pullRequest.base.repo.id !== repositoryId ||
         pullRequest.base.ref !== source.repositoryRef)
@@ -294,6 +302,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
       sourceHead,
       previousHead: priorHead,
       content,
+      ...(draft === undefined ? {} : { draft }),
     });
     const publicationHash = yield* contentHash(encodedIntent);
 
@@ -313,8 +322,9 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
 
     // The intent is committed before external mutations. The stable branch and exact
     // source are reconciled on retry, including a lost push or create-PR response.
-    if (!reconcileOnly)
-      yield* sql`INSERT INTO repair_publication (run_id, source_head, pull_request_url, kind, intent, receipt)
+    if (!reconcileOnly) {
+      const accepted =
+        yield* sql`INSERT INTO repair_publication (run_id, source_head, pull_request_url, kind, intent, receipt)
     VALUES (${runId}, ${sourceHead}, NULL, ${content.kind}, ${encodedIntent}, NULL)
     ON CONFLICT (run_id) DO UPDATE SET source_head = excluded.source_head,
       intent = excluded.intent, receipt = NULL,
@@ -322,7 +332,13 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
         WHEN repair_publication.source_head = excluded.source_head
         THEN repair_publication.pull_request_url
         ELSE NULL
-      END`;
+      END
+    WHERE repair_publication.intent IS NOT DISTINCT FROM ${previous?.intent ?? null}
+    RETURNING run_id`;
+
+      if (accepted.length === 0)
+        return yield* ConflictError.make({ message: "The saved publication intent changed" });
+    }
     if (!reconcileOnly && remoteHead !== sourceHead) {
       const unresolved = yield* repairHelperSandbox("export");
 
@@ -445,7 +461,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
               title: content.title,
               head: branch,
               base: source.repositoryRef,
-              draft: false,
+              draft: draft ?? false,
               body: content.body,
             }),
           ),
@@ -480,6 +496,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
       if (
         pullRequest.user.login !== bot.name ||
         pullRequest.state !== "open" ||
+        pullRequest.draft !== (draft ?? false) ||
         pullRequest.head.sha !== sourceHead ||
         pullRequest.head.repo.id !== repositoryId ||
         pullRequest.base.repo.id !== repositoryId ||
@@ -515,7 +532,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
     if (
       pullRequest === undefined ||
       (!reconcileOnly && pullRequest.state !== "open") ||
-      pullRequest.draft ||
+      pullRequest.draft !== (draft ?? false) ||
       pullRequest.head.sha !== sourceHead ||
       pullRequest.head.repo.id !== repositoryId ||
       pullRequest.base.repo.id !== repositoryId ||
@@ -667,7 +684,7 @@ export const publishRepair = Effect.fn("RepairRun.publish")(function* (
     WHERE run_id = ${state.runId}`)[0];
 
   // A retry continues the accepted write, including publications accepted before
-  // host validation was removed. It cannot replace content or invent a receipt.
+  // host validation was removed. It cannot replace content, change draft state or invent a receipt.
   if (prior?.intent !== undefined && prior.intent !== null) {
     const intent = yield* Schema.decodeEffect(IntentJson)(prior.intent);
 
@@ -678,7 +695,7 @@ export const publishRepair = Effect.fn("RepairRun.publish")(function* (
   }
   const content = yield* (yield* RepairPresentation).publicationContent(state, request);
 
-  return yield* publishRepository(request.candidateSha, content).pipe(
+  return yield* publishRepository(request.candidateSha, content, false, request.draft).pipe(
     Effect.timeout(Math.max(1, origin.deadlineAtMs - DateTime.toEpochMillis(yield* DateTime.now))),
   );
 });
