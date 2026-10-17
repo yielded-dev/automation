@@ -118,8 +118,9 @@ const retain = (
 
 /**
  * A complete investigator, usable as an Effect or an invoked XState actor.
- * Tools return InvestigationObservation and must be explicitly read-only. The
- * library owns planning, argument correction, evidence, reporting and resume.
+ * Tools return InvestigationObservation, must be explicitly read-only, and
+ * must not declare an approval policy. The library owns planning, argument
+ * correction, evidence, reporting and resume.
  * Callers authorize each delivery before invocation and each tool at its boundary.
  */
 export const makeInvestigator = <
@@ -166,6 +167,16 @@ export const makeInvestigator = <
       return yield* InvestigationError.make({
         code: "write_tool",
         cause: "Investigation tools must be explicitly read-only",
+      });
+
+    if (
+      Object.values(config.tools.tools).some(
+        (tool) => tool.needsApproval !== undefined && tool.needsApproval !== false,
+      )
+    )
+      return yield* InvestigationError.make({
+        code: "approval_tool",
+        cause: "Investigation cannot execute tools that declare an approval policy",
       });
 
     if (state === null) {
@@ -282,6 +293,16 @@ export const makeInvestigator = <
                   Stream.runLast,
                 ),
               ),
+              Effect.flatMap((result) =>
+                Option.isSome(result) && result.value.isFailure
+                  ? Effect.failCause(
+                      Cause.annotate(
+                        Cause.fail(result.value.result),
+                        Context.make(Toolkit.FailureOrigin, result.value.failureOrigin ?? "result"),
+                      ),
+                    )
+                  : Effect.succeed(result),
+              ),
               bounded(previous.remainingMs),
               Effect.exit,
             );
@@ -305,11 +326,6 @@ export const makeInvestigator = <
                 cause: call.name,
               });
             const result = outcome.value.value;
-            if (result.isFailure)
-              return yield* InvestigationError.make({
-                code: "tool_failure",
-                cause: result.encodedResult,
-              });
             const observation = yield* Schema.decodeUnknownEffect(InvestigationObservation)(
               result.result,
             );
@@ -435,7 +451,21 @@ export const makeInvestigator = <
   return {
     run,
     actor: fromEffect(({ input }: { readonly input: InvestigationInput }) =>
-      run(input).pipe(Effect.exit),
+      Effect.uninterruptibleMask((restore) =>
+        Effect.gen(function* () {
+          const fiber = yield* run(input).pipe(Effect.exit, Effect.forkChild);
+          // The alpha adapter interrupts actors synchronously; their host must await cleanup.
+          yield* Effect.addFinalizer(() =>
+            Effect.gen(function* () {
+              yield* Fiber.interrupt(fiber);
+              const outcome = yield* Fiber.await(fiber);
+              if (Exit.isFailure(outcome) && !Cause.hasInterruptsOnly(outcome.cause))
+                return yield* Effect.failCause(outcome.cause);
+            }),
+          );
+          return yield* restore(Fiber.join(fiber));
+        }),
+      ),
     ),
     machine: investigatorMachine,
   };

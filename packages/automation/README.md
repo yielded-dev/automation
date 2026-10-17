@@ -69,7 +69,9 @@ const investigator = makeInvestigator({
 ```
 
 Provide the model through `LanguageModel`, readers through `tools.toLayer`, and
-storage through `InvestigationStore`. Readers return `{ items, limitations }`;
+storage through `InvestigationStore`. Tools must be explicitly read-only and must
+not declare an approval policy; the capability has no approval handshake.
+Readers return `{ items, limitations }`;
 each evidence item has a stable ID and provenance. Treat unavailable evidence as
 a limitation when that is an expected product outcome. Typed failures, defects
 and interruption otherwise stop the attempt with their full Effect `Cause`.
@@ -126,8 +128,12 @@ serialize deliveries or reject stale writes, and load the last committed checkpo
 on retry. Credentials and bindings stay in Effect services, outside the checkpoint.
 
 `InvestigationCheckpoint` from `/domain/Investigator` stores the definition version,
-exact conversation, evidence, pending calls, cursor, remaining research time and
-completed output. Each research turn and completed tool result is saved before
+complete Effect `LanguageModel`/`Chat` conversation, evidence, pending calls,
+cursor, remaining research time and completed output. Tool arguments are the
+normalized executable arguments returned by the provider adapter, which may
+convert an optional `null` to omission. This preserves the application-boundary
+conversation, not raw provider HTTP requests or responses.
+Each research turn and completed tool result is saved before
 another operation starts. Reporting retries reuse that history. A completed replay
 returns the saved result without another model call. A read whose following save
 failed can run again: this is not an exactly-once guarantee for external effects.

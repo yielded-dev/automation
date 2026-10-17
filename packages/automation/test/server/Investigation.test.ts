@@ -127,10 +127,65 @@ it("rejects a writable toolkit before planning or executing any tool", async () 
   expect(host.checkpoints).toEqual([]);
 });
 
-it.each(["defect", "interrupted", "handler"] as const)(
+it.each([true, () => true] as const)(
+  "rejects approval policies before planning or executing a read (%s)",
+  async (needsApproval) => {
+    const host = fixture();
+    const approvalTools = Toolkit.make(Read.setNeedsApproval(needsApproval));
+    let calls = 0;
+    let reads = 0;
+    const result = await Effect.runPromiseExit(
+      Effect.gen(function* () {
+        const languageModel = yield* model((options) =>
+          Effect.sync(() => {
+            calls++;
+            return options.responseFormat.type === "json"
+              ? report({ finding: { summary: "Unapproved read" }, citations: ["one"] })
+              : plan("one");
+          }),
+        );
+        return yield* makeInvestigator({ ...definition, tools: approvalTools })
+          .run(input)
+          .pipe(Effect.provideService(LanguageModel.LanguageModel, languageModel));
+      }).pipe(
+        Effect.provide(
+          approvalTools.toLayer({
+            read: () =>
+              Effect.sync(() => {
+                reads++;
+                return observation("one");
+              }),
+          }),
+        ),
+        Effect.provideService(InvestigationStore, host.store),
+        Effect.provide(NodeCrypto.layer),
+      ),
+    );
+    expect(reads).toBe(0);
+    expect(calls).toBe(0);
+    expect(result).toMatchObject({
+      _tag: "Failure",
+      cause: {
+        reasons: [{ _tag: "Fail", error: { _tag: "InvestigationError", code: "approval_tool" } }],
+      },
+    });
+    expect(host.checkpoints).toEqual([]);
+  },
+);
+
+it.each(["defect", "interrupted", "handler", "returned handler"] as const)(
   "preserves %s validation causes without argument correction",
   async (scenario) => {
     const host = fixture();
+    const inHandler = scenario === "handler" || scenario === "returned handler";
+    const tools = Toolkit.make(
+      Tool.make("read", {
+        parameters: Read.parametersSchema,
+        success: Read.successSchema,
+        failure: Read.failureSchema,
+        failureMode: scenario === "returned handler" ? "return" : "error",
+      }).annotate(Tool.Readonly, true),
+    );
     const error = AiError.make({
       module: "Toolkit",
       method: "read.handle",
@@ -139,18 +194,17 @@ it.each(["defect", "interrupted", "handler"] as const)(
         description: "PRIVATE_DETAILS",
       }),
     });
-    const origin = scenario === "handler" ? "handler" : "parameters";
+    const origin = inHandler ? "handler" : "parameters";
     const validation = Cause.annotate(
       Cause.fail(error),
       Context.make(Toolkit.FailureOrigin, origin),
     );
-    const original =
-      scenario === "handler"
-        ? validation
-        : Cause.combine(
-            validation,
-            scenario === "defect" ? Cause.die({ detail: "PRIVATE_DEFECT" }) : Cause.interrupt(123),
-          );
+    const original = inHandler
+      ? validation
+      : Cause.combine(
+          validation,
+          scenario === "defect" ? Cause.die({ detail: "PRIVATE_DEFECT" }) : Cause.interrupt(123),
+        );
     let calls = 0;
     let reads = 0;
     const result = await Effect.runPromise(
@@ -158,14 +212,12 @@ it.each(["defect", "interrupted", "handler"] as const)(
         const languageModel = yield* model(() =>
           Effect.suspend(() => {
             calls++;
-            return scenario === "handler"
-              ? Effect.succeed(plan("one"))
-              : Effect.failCause(original);
+            return inHandler ? Effect.succeed(plan("one")) : Effect.failCause(original);
           }),
         );
-        const actor = yield* createEffectActor(makeInvestigator(definition).actor, { input }).pipe(
-          Effect.provideService(LanguageModel.LanguageModel, languageModel),
-        );
+        const actor = yield* createEffectActor(makeInvestigator({ ...definition, tools }).actor, {
+          input,
+        }).pipe(Effect.provideService(LanguageModel.LanguageModel, languageModel));
         return (yield* waitFor(actor, (snapshot) => snapshot.status === "done")).output!;
       }).pipe(
         Effect.scoped,
@@ -183,7 +235,7 @@ it.each(["defect", "interrupted", "handler"] as const)(
       ),
     );
     expect(calls).toBe(1);
-    expect(reads).toBe(scenario === "handler" ? 1 : 0);
+    expect(reads).toBe(inHandler ? 1 : 0);
     expect(Exit.isFailure(result)).toBe(true);
     if (Exit.isFailure(result)) {
       expect(result.cause.reasons).toHaveLength(original.reasons.length);
@@ -460,101 +512,175 @@ it("waits for cleanup on scope cancellation and preserves interruption with its 
   );
 });
 
-it("corrects deferred read arguments and invokes the capability inside a consumer's review graph", async () => {
+it("waits for cleanup when the public actor's consumer scope closes", async () => {
   const host = fixture();
-  const reads: string[] = [];
-  const requests: LanguageModel.ProviderOptions[] = [];
-  const finding = { severity: "high" as const, service: "api" };
-  const investigator = makeInvestigator({
-    ...definition,
-    result: Schema.Struct({ severity: Schema.Literals(["low", "high"]), service: Schema.String }),
-  });
-  const consumer = setupEffect({
-    schemas: {
-      context: Schema.Struct({ summary: Schema.String, citations: Schema.Array(Schema.String) }),
-      events: { APPROVE: Schema.Struct({}) },
-      output: Schema.String,
-    },
-    actors: { investigate: investigator.actor },
-  }).createMachine({
-    context: { summary: "", citations: [] },
-    initial: "investigating",
-    states: {
-      investigating: {
-        invoke: {
-          src: "investigate",
-          input,
-          onDone: ({ event }) =>
-            Exit.isFailure(event.output)
-              ? { target: "failed" }
-              : {
-                  target: "reviewing",
-                  context: {
-                    summary: `${event.output.value.finding.severity}: ${event.output.value.finding.service}`,
-                    citations: event.output.value.citations,
-                  },
-                },
-        },
-      },
-      reviewing: { on: { APPROVE: { target: "approved" } } },
-      approved: { type: "final", output: ({ context }) => `Approved ${context.summary}` },
-      failed: { type: "final", output: () => "Investigation failed" },
-    },
-  });
-  const result = await Effect.runPromise(
+  await Effect.runPromise(
     Effect.gen(function* () {
-      const languageModel = yield* model((options) =>
+      const started = yield* Deferred.make<void>();
+      const releasing = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const cleaned = yield* Deferred.make<void>();
+      const defect = { cleanup: "public actor" };
+      let active = false;
+      const synthesis = Effect.acquireUseRelease(
         Effect.sync(() => {
-          requests.push(options);
-          if (options.responseFormat.type === "json")
-            return report({ finding, citations: ["request"] });
-          return requests.length === 1
-            ? plan("x".repeat(304))
-            : requests.length === 2
-              ? plan("request")
-              : plan();
+          active = true;
         }),
+        () => Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
+        () =>
+          Effect.gen(function* () {
+            yield* Deferred.succeed(releasing, undefined);
+            yield* Deferred.await(release);
+            active = false;
+            yield* Deferred.succeed(cleaned, undefined);
+            return yield* Effect.die(defect);
+          }),
       );
-      const actor = yield* createEffectActor(consumer).pipe(
+      const languageModel = yield* model((options) =>
+        options.responseFormat.type === "json" ? synthesis : Effect.succeed(plan()),
+      );
+      const scope = yield* Scope.make();
+      yield* createEffectActor(makeInvestigator(definition).actor, { input }).pipe(
+        Effect.provideService(Scope.Scope, scope),
         Effect.provideService(LanguageModel.LanguageModel, languageModel),
       );
-      const reviewing = yield* waitFor(actor, (snapshot) => snapshot.matches("reviewing"));
-      expect(reviewing.context).toEqual({ summary: "high: api", citations: ["request"] });
-      expect(host.saved()).toMatchObject({
-        phase: "completed",
-        output: { finding, citations: ["request"] },
-      });
-      actor.send({ type: "APPROVE" });
-      return (yield* waitFor(actor, (snapshot) => snapshot.status === "done")).output;
+      yield* Deferred.await(started);
+      const closing = yield* Effect.forkChild(Scope.close(scope, Exit.void));
+      yield* Deferred.await(releasing);
+      yield* Effect.sleep("10 millis");
+      const whileClosing = { active, outcome: closing.pollUnsafe() };
+      yield* Deferred.succeed(release, undefined);
+      yield* Deferred.await(cleaned);
+      const outcome = yield* Fiber.await(closing);
+      expect(whileClosing).toEqual({ active: true, outcome: undefined });
+      expect(active).toBe(false);
+      expect(Exit.isFailure(outcome)).toBe(true);
+      if (Exit.isFailure(outcome))
+        expect(
+          outcome.cause.reasons.some(
+            (reason) => Cause.isDieReason(reason) && reason.defect === defect,
+          ),
+        ).toBe(true);
+      expect(host.saved()).toMatchObject({ phase: "reporting", output: null });
     }).pipe(
-      Effect.scoped,
-      Effect.provide(
-        tools.toLayer({
-          read: ({ query }) =>
-            Effect.sync(() => {
-              reads.push(query);
-              return observation(query);
-            }),
-        }),
-      ),
+      Effect.provide(tools.toLayer({ read: () => Effect.die("Unexpected read") })),
       Effect.provideService(InvestigationStore, host.store),
       Effect.provide(NodeCrypto.layer),
       Effect.timeout("3 seconds"),
     ),
   );
-  expect(result).toBe("Approved high: api");
-  expect(reads).toEqual(["request"]);
-  expect(requests).toHaveLength(4);
-  expect(requests.slice(0, 3).every((request) => request.toolCallValidation === "deferred")).toBe(
-    true,
-  );
-  expect(
-    requests[1]?.prompt.content.flatMap((message) =>
-      message.role === "tool" ? message.content : [],
-    ),
-  ).toMatchObject([{ type: "tool-result", name: "read", isFailure: true }]);
-  expect(requests[3]?.responseFormat).toMatchObject({
-    type: "json",
-    objectName: "investigation_finding",
-  });
 });
+
+it.each(["error", "return"] as const)(
+  "corrects deferred read arguments in %s mode inside a consumer's review graph",
+  async (failureMode) => {
+    const host = fixture();
+    const tools = Toolkit.make(
+      Tool.make("read", {
+        parameters: Read.parametersSchema,
+        success: Read.successSchema,
+        failure: Read.failureSchema,
+        failureMode,
+      }).annotate(Tool.Readonly, true),
+    );
+    const reads: string[] = [];
+    const requests: LanguageModel.ProviderOptions[] = [];
+    const finding = { severity: "high" as const, service: "api" };
+    const investigator = makeInvestigator({
+      ...definition,
+      tools,
+      result: Schema.Struct({ severity: Schema.Literals(["low", "high"]), service: Schema.String }),
+    });
+    const consumer = setupEffect({
+      schemas: {
+        context: Schema.Struct({ summary: Schema.String, citations: Schema.Array(Schema.String) }),
+        events: { APPROVE: Schema.Struct({}) },
+        output: Schema.String,
+      },
+      actors: { investigate: investigator.actor },
+    }).createMachine({
+      context: { summary: "", citations: [] },
+      initial: "investigating",
+      states: {
+        investigating: {
+          invoke: {
+            src: "investigate",
+            input,
+            onDone: ({ event }) =>
+              Exit.isFailure(event.output)
+                ? { target: "failed" }
+                : {
+                    target: "reviewing",
+                    context: {
+                      summary: `${event.output.value.finding.severity}: ${event.output.value.finding.service}`,
+                      citations: event.output.value.citations,
+                    },
+                  },
+          },
+        },
+        reviewing: { on: { APPROVE: { target: "approved" } } },
+        approved: { type: "final", output: ({ context }) => `Approved ${context.summary}` },
+        failed: { type: "final", output: () => "Investigation failed" },
+      },
+    });
+    const result = await Effect.runPromise(
+      Effect.gen(function* () {
+        const languageModel = yield* model((options) =>
+          Effect.sync(() => {
+            requests.push(options);
+            if (options.responseFormat.type === "json")
+              return report({ finding, citations: ["request"] });
+            return requests.length === 1
+              ? plan("x".repeat(304))
+              : requests.length === 2
+                ? plan("request")
+                : plan();
+          }),
+        );
+        const actor = yield* createEffectActor(consumer).pipe(
+          Effect.provideService(LanguageModel.LanguageModel, languageModel),
+        );
+        const reviewing = yield* waitFor(
+          actor,
+          (snapshot) => snapshot.matches("reviewing") || snapshot.status === "done",
+        );
+        expect(reviewing.context).toEqual({ summary: "high: api", citations: ["request"] });
+        expect(host.saved()).toMatchObject({
+          phase: "completed",
+          output: { finding, citations: ["request"] },
+        });
+        actor.send({ type: "APPROVE" });
+        return (yield* waitFor(actor, (snapshot) => snapshot.status === "done")).output;
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          tools.toLayer({
+            read: ({ query }) =>
+              Effect.sync(() => {
+                reads.push(query);
+                return observation(query);
+              }),
+          }),
+        ),
+        Effect.provideService(InvestigationStore, host.store),
+        Effect.provide(NodeCrypto.layer),
+        Effect.timeout("3 seconds"),
+      ),
+    );
+    expect(result).toBe("Approved high: api");
+    expect(reads).toEqual(["request"]);
+    expect(requests).toHaveLength(4);
+    expect(requests.slice(0, 3).every((request) => request.toolCallValidation === "deferred")).toBe(
+      true,
+    );
+    expect(
+      requests[1]?.prompt.content.flatMap((message) =>
+        message.role === "tool" ? message.content : [],
+      ),
+    ).toMatchObject([{ type: "tool-result", name: "read", isFailure: true }]);
+    expect(requests[3]?.responseFormat).toMatchObject({
+      type: "json",
+      objectName: "investigation_finding",
+    });
+  },
+);
