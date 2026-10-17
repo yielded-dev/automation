@@ -12,6 +12,33 @@ const make = Effect.gen(function* () {
   const state = yield* DurableObjectState.DurableObjectState;
 
   const { read } = yield* ContainerState;
+  const request = Effect.fnUntraced(function* (
+    operation: string,
+    path: "/rpc" | "/health",
+    init?: RequestInit,
+  ) {
+    const port = yield* container.getTcpPort(PROCESS_SUPERVISOR_PORT);
+
+    // Supervisor long polls last at most 20 seconds. Keep cancellation attached
+    // through the response body so a stalled socket cannot hold native admission.
+    return yield* Effect.tryPromise({
+      try: async (signal) => {
+        const response = await port.raw.fetch(
+          `http://localhost:${PROCESS_SUPERVISOR_PORT}${path}`,
+          {
+            ...init,
+            signal,
+          },
+        );
+
+        return await response.text();
+      },
+      catch: (cause) => cause,
+    }).pipe(
+      Effect.timeout("30 seconds"),
+      Effect.mapError((cause) => new DurableObjectContainer.ContainerError({ operation, cause })),
+    );
+  });
   const supervisorCall = Effect.fnUntraced(function* (
     method:
       | "allocateTicket"
@@ -29,18 +56,11 @@ const make = Effect.gen(function* () {
     args: ReadonlyArray<unknown>,
     token: string,
   ) {
-    const response = yield* (yield* container.getTcpPort(PROCESS_SUPERVISOR_PORT)).fetch(
-      `http://localhost:${PROCESS_SUPERVISOR_PORT}/rpc`,
-      {
-        method: "POST",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-        // oxlint-disable-next-line no-restricted-properties -- private supervisor request carries job configuration over its authenticated socket.
-        body: JSON.stringify({ method, args }),
-      },
-    );
-    const body = yield* Effect.tryPromise({
-      try: () => response.text(),
-      catch: (cause) => new DurableObjectContainer.ContainerError({ operation: method, cause }),
+    const body = yield* request(method, "/rpc", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      // oxlint-disable-next-line no-restricted-properties -- private supervisor request carries job configuration over its authenticated socket.
+      body: JSON.stringify({ method, args }),
     });
     const result = yield* Schema.decodeEffect(Schema.fromJsonString(SupervisorReply))(body);
 
@@ -57,13 +77,7 @@ const make = Effect.gen(function* () {
   // supervisor, so the owner learns the protocol from the running supervisor
   // rather than assuming its own source version.
   const readProtocol = Effect.gen(function* () {
-    const response = yield* (yield* container.getTcpPort(PROCESS_SUPERVISOR_PORT)).fetch(
-      `http://localhost:${PROCESS_SUPERVISOR_PORT}/health`,
-    );
-    const body = yield* Effect.tryPromise({
-      try: () => response.text(),
-      catch: (cause) => new DurableObjectContainer.ContainerError({ operation: "health", cause }),
-    });
+    const body = yield* request("health", "/health");
     const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(HealthReply))(body).pipe(
       Effect.result,
     );
