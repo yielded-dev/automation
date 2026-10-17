@@ -1,6 +1,6 @@
 {
   "name": "@yielded/automation",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Event investigation, decision reuse and authorized action workflows.",
   "license": "MIT",
   "repository": {
@@ -74,7 +74,7 @@
     "@yielded/sandbox": "workspace:*"
   },
   "peerDependencies": {
-    "@yielded/sandbox": "^0.2.0",
+    "@yielded/sandbox": "^0.2.1",
     "drizzle-orm": "^1.0.0-rc.4",
     "effect": "^4.0.3",
     "effect-cf": "^0.56.2"
