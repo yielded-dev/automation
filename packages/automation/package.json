@@ -9,6 +9,7 @@
     "directory": "packages/automation"
   },
   "files": [
+    "CHANGELOG.md",
     "src",
     "dist",
     "docs"

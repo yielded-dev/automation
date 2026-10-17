@@ -7,6 +7,11 @@ changes to public dependencies. Prepare reviewable changes before asking.
 Use Vite+ for commands and Bun for package management. Run `vp run check` before completion.
 Read `node_modules/effect/AGENTS.md` completely before writing Effect code and follow its relevant links.
 
+Add a consumer-facing changeset for public behavior changes with `vp run changeset`.
+Automation and Sandbox share a Changesets fixed version; private workspaces are not
+released. Main prepares a version PR, and merging that PR publishes the checked
+packages. Use `vp run ci:version` when generating version changes locally.
+
 ## Package responsibilities
 
 This repository contains reusable, consumer-agnostic libraries:

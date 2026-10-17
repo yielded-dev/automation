@@ -1,63 +1,98 @@
 name: Release
-run-name: Release @yielded/${{ inputs.package }}@${{ inputs.expected_version }}
 
 on:
-  workflow_dispatch:
-    inputs:
-      package:
-        description: Package to publish
-        type: choice
-        required: true
-        options:
-          - sandbox
-          - automation
-      expected_version:
-        description: Exact version already committed in the selected package.json
-        type: string
-        required: true
+  push:
+    branches: [main]
 
-permissions:
-  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+env:
+  CI: "true"
+  VP_GIT_HOOKS: "0"
 
 jobs:
-  release:
-    if: github.ref == 'refs/heads/main'
+  select-mode:
+    name: Select release mode
+    if: ${{ vars.RELEASE_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    concurrency:
-      group: release-${{ inputs.package }}
-      cancel-in-progress: false
+    timeout-minutes: 10
     permissions:
       contents: read
-      id-token: write
-    env:
-      RELEASE_PACKAGE: ${{ inputs.package }}
-      EXPECTED_VERSION: ${{ inputs.expected_version }}
+    outputs:
+      mode: ${{ steps.select-mode.outputs.mode }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.sha }}
           fetch-depth: 0
           persist-credentials: false
-      - uses: voidzero-dev/setup-vp@v1.21.1
+      - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
         with:
           node-version: "24.21.0"
           run-install: false
-      - name: Validate package and version
-        run: |
-          node --input-type=module <<'NODE'
-          import assert from "node:assert/strict";
-          import { readFileSync } from "node:fs";
-          const selected = process.env.RELEASE_PACKAGE;
-          assert.ok(["sandbox", "automation"].includes(selected), "Select sandbox or automation");
-          const manifest = JSON.parse(readFileSync(`packages/${selected}/package.json`, "utf8"));
-          assert.equal(manifest.name, `@yielded/${selected}`, "Unexpected package name");
-          assert.notEqual(manifest.private, true, "Cannot publish a private package");
-          assert.equal(manifest.version, process.env.EXPECTED_VERSION, "Expected version must match package.json");
-          console.log(`Validated ${manifest.name}@${manifest.version}`);
-          NODE
-      # Keep these gates aligned with check.yml; check builds generated dist.
+      - run: vp install --frozen-lockfile --ignore-scripts
+      - name: Select Changesets mode
+        id: select-mode
+        uses: changesets/action/select-mode@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+
+  version:
+    name: Update release pull request
+    needs: [select-mode]
+    if: ${{ needs.select-mode.outputs.mode == 'version' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
+        with:
+          node-version: "24.21.0"
+          run-install: false
+      - run: vp install --frozen-lockfile --ignore-scripts
+      # App-authored updates trigger ordinary PR CI, unlike GITHUB_TOKEN pushes.
+      - name: Mint the release token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.RELEASES_GH_APP_ID }}
+          private-key: ${{ secrets.RELEASES_GH_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Create release pull request
+        uses: changesets/action/version@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          github-token: ${{ steps.app-token.outputs.token }}
+          pr-title: "chore: version packages"
+          commit-message: "chore: version packages"
+          script: vp run --no-cache ci:version
+
+  publish:
+    name: Publish release
+    needs: [select-mode]
+    if: ${{ needs.select-mode.outputs.mode == 'publish' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: voidzero-dev/setup-vp@3754dd7dbdb32bd8f6d28b6043de13ad3a75f21f # v1.21.1
+        with:
+          node-version: "24.21.0"
+          run-install: false
       - run: vp install --frozen-lockfile
+      # Keep these gates aligned with check.yml; check builds generated dist.
       - run: vp run check
       - name: Verify generated migrations
         run: |
@@ -65,9 +100,12 @@ jobs:
           test -z "$(git status --porcelain -- examples/postgres/drizzle)"
       - run: vp run -F @yielded/automation test:e2e
       - run: vp run check:packages
-      - name: Pack checked build
-        run: |
-          cd "packages/$RELEASE_PACKAGE"
-          bun pm pack --ignore-scripts --filename "$RUNNER_TEMP/release.tgz"
-      - name: Publish with npm trusted publishing
-        run: vp env exec --npm 12.2.0 npm publish "$RUNNER_TEMP/release.tgz" --access public --provenance --ignore-scripts --registry https://registry.npmjs.org
+      - name: Upgrade npm for trusted publishing
+        run: npm install --global npm@12.2.0
+      - name: Publish release
+        uses: changesets/action/publish@ae32849d5ba541f9ae29e40e22a623bc13562f51 # v2.1.2
+        with:
+          script: vp run --no-cache release:publish
+        env:
+          NPM_CONFIG_PROVENANCE: "true"
+          NPM_CONFIG_IGNORE_SCRIPTS: "true"
