@@ -1,5 +1,13 @@
 # @yielded/automation
 
+## 0.2.2
+
+### Patch Changes
+
+- [#8](https://github.com/yielded-dev/automation/pull/8) [`fbcd741`](https://github.com/yielded-dev/automation/commit/fbcd741926764497cb098f21a9e74369ccbbf6f7) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Fix repair activity pages failing when they contain a truncated-output marker. Runtime event payloads now retain their JSON values, including null, while Codex events still require JSON object payloads.
+- Updated dependencies [[`2508932`](https://github.com/yielded-dev/automation/commit/2508932e85040689bef387e608f2202f128632c8), [`6e2d538`](https://github.com/yielded-dev/automation/commit/6e2d53897e5d05c7f08b8ae70531c7b757ad1518)]:
+  - @yielded/sandbox@0.2.2
+
 ## 0.2.1
 
 ### Patch Changes

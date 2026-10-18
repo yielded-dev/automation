@@ -1,5 +1,13 @@
 # @yielded/sandbox
 
+## 0.2.2
+
+### Patch Changes
+
+- [#9](https://github.com/yielded-dev/automation/pull/9) [`2508932`](https://github.com/yielded-dev/automation/commit/2508932e85040689bef387e608f2202f128632c8) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Prepare sandbox HTTPS trust immediately and rebuild the full certificate store in the background so container readiness no longer waits for certificate hooks.
+
+- [#11](https://github.com/yielded-dev/automation/pull/11) [`6e2d538`](https://github.com/yielded-dev/automation/commit/6e2d53897e5d05c7f08b8ae70531c7b757ad1518) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Allow hosts to enable direct public internet access when starting containers.
+
 ## 0.2.1
 
 ### Patch Changes
