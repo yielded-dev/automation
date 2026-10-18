@@ -17,6 +17,10 @@ export interface SandboxAgentContainerOptions<
   readonly capacityBinding?: string;
   readonly imageKey?: string;
   readonly idleMillis?: number;
+  /** Allow direct public internet access at container start. Defaults to false.
+   * Explicit outbound interceptors still apply to their configured hosts.
+   */
+  readonly enableInternet?: boolean;
   readonly backupBucketBinding?: string;
   readonly openAiApiKey?: (environment: Environment) => Redacted.Redacted<string>;
   readonly openAiFetch?: (
