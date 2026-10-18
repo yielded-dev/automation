@@ -74,3 +74,9 @@ docker build --platform linux/amd64 -t agent-workspace:local node_modules/@yield
 
 The application owns the image registry, deployment, bindings and secrets. This
 package does not provision infrastructure or start a central hosted service.
+
+`makeSandboxAgentContainer` starts containers without public internet access by
+default. Set `enableInternet: true` in its host configuration for direct outbound
+access, including package registries, browser downloads and public repositories.
+Configured outbound interceptors still apply; enabling internet access does not
+grant host credentials. The setting takes effect when a container starts.

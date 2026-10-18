@@ -180,6 +180,7 @@ const make = <Environment extends Cloudflare.Env, EventServices, EventError>(
       settings: {
         imageKey: options.imageKey ?? "harness",
         idleMillis: options.idleMillis ?? 300_000,
+        enableInternet: options.enableInternet ?? false,
         capacityBinding: options.capacityBinding ?? "SANDBOX_MAX_INSTANCES",
         backupBucketBinding: options.backupBucketBinding,
         outboundEntrypoint: options.outboundEntrypoint ?? "SandboxOutbound",

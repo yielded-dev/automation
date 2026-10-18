@@ -298,7 +298,7 @@ const make = Effect.gen(function* () {
           (input.size === "big"
             ? ("standard-4" as const)
             : { vcpu: 2, memoryMib: 12_288, diskMb: 20_000 }),
-        enableInternet: false,
+        enableInternet: options.enableInternet,
         labels: { instance: instanceId },
         env: {
           HOME: "/root",
