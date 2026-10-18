@@ -13,16 +13,20 @@ export const readRunEvents = Effect.fn("RepairExecution.events")(function* (
 
   return yield* Effect.forEach(events, (event) =>
     Effect.gen(function* () {
-      // oxlint-disable-next-line no-restricted-properties -- shared SandboxTaskEvent payload is intentionally unknown at this transport boundary.
-      const payload = yield* Schema.decodeUnknownEffect(Schema.Json)(event.payload);
-      // oxlint-disable-next-line no-restricted-properties -- reconstruct the existing codex event from the decoded transport payload.
-      const record = yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Json))(
-        event.payload,
-      );
-      const value: Schema.Json =
-        event.kind === "codex"
-          ? { type: "codex.event", event: { type: event.method, ...record } }
-          : { type: event.method, value: payload };
+      let value: Schema.Json;
+
+      if (event.kind === "codex") {
+        // oxlint-disable-next-line no-restricted-properties -- reconstruct the existing codex event from the decoded transport payload.
+        const record = yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Json))(
+          event.payload,
+        );
+        value = { type: "codex.event", event: { type: event.method, ...record } };
+      } else {
+        // oxlint-disable-next-line no-restricted-properties -- shared SandboxTaskEvent payload is intentionally unknown at this transport boundary.
+        const payload = yield* Schema.decodeUnknownEffect(Schema.Json)(event.payload);
+        value = { type: event.method, value: payload };
+      }
+
       let body = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(value);
       let bytes = new TextEncoder().encode(body).byteLength;
 
