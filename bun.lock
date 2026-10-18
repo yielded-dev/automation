@@ -31,7 +31,7 @@
         "vite": "npm:@voidzero-dev/vite-plus-core@1.1.0",
       },
       "peerDependencies": {
-        "@yielded/sandbox": "^0.2.1",
+        "@yielded/sandbox": "^0.2.2",
         "drizzle-orm": "^1.0.0-rc.4",
         "effect": "^4.0.3",
         "effect-cf": "^0.56.2",
@@ -71,7 +71,7 @@
     },
     "packages/automation": {
       "name": "@yielded/automation",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "dependencies": {
         "@xstate/effect": "0.1.0-alpha.4",
         "uuid": "14.0.1",
@@ -94,7 +94,7 @@
     },
     "packages/sandbox": {
       "name": "@yielded/sandbox",
-      "version": "0.2.1",
+      "version": "0.2.2",
       "dependencies": {
         "@cloudflare/sandbox": "1.0.0",
       },
