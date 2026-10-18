@@ -452,8 +452,8 @@ if (import.meta.main) {
 const supervisorModule = JSON.stringify(PROCESS_SUPERVISOR_SOURCE);
 
 export const PROCESS_BOOTSTRAP_SOURCE = String.raw`
-import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { spawn, spawnSync } from 'node:child_process';
 const instanceId = process.env.KOMMUNIKASIE_CONTAINER_INSTANCE;
 const token = process.env.KOMMUNIKASIE_SUPERVISOR_TOKEN;
 delete process.env.KOMMUNIKASIE_SUPERVISOR_TOKEN;
@@ -462,9 +462,48 @@ rmSync('${PROCESS_DIRECTORY}', { recursive: true, force: true });
 rmSync('${NATIVE_RECEIPTS_DIRECTORY}', { recursive: true, force: true });
 mkdirSync('/run/kommunikasie/private', { recursive: true, mode: 0o700 });
 writeFileSync('${PROCESS_INSTANCE_PATH}', instanceId);
-// The image's CA store is prepared once before any host-authorized command.
-const trust = spawnSync('sh', ['-eu', '-c', 'certificate=/etc/cloudflare/certs/cloudflare-containers-ca.crt; if test -f "$certificate"; then cp "$certificate" /usr/local/share/ca-certificates/cloudflare-containers.crt; update-ca-certificates >/dev/null; fi'], { stdio: 'ignore' });
-if (trust.status !== 0) throw Error('Container certificate installation failed');
+// Install this boot's CA in both system trust formats before admitting commands.
+// Rebuilding every unrelated certificate and running image hooks can happen later.
+const certificatePath = '/etc/cloudflare/certs/cloudflare-containers-ca.crt';
+if (existsSync(certificatePath)) {
+  const installedPath = '/usr/local/share/ca-certificates/cloudflare-containers.crt';
+  const pemPath = '/etc/ssl/certs/cloudflare-containers.pem';
+  const bundlePath = '/etc/ssl/certs/ca-certificates.crt';
+  const certificate = readFileSync(certificatePath, 'utf8').trim();
+  const hash = spawnSync('openssl', ['x509', '-in', certificatePath, '-hash', '-noout'], { encoding: 'utf8' });
+  if (hash.status !== 0 || !/^[a-f0-9]{8}$/.test(hash.stdout.trim())) throw Error('Container certificate installation failed');
+  const previous = existsSync(installedPath) ? readFileSync(installedPath, 'utf8').trim() : '';
+  const bundle = readFileSync(bundlePath, 'utf8');
+  const retained = previous ? bundle.replace(previous, '') : bundle;
+  writeFileSync(installedPath, certificate + '\n', { mode: 0o644 });
+  rmSync(pemPath, { force: true });
+  symlinkSync(installedPath, pemPath);
+  const temporaryBundle = bundlePath + '.sandbox-' + process.pid;
+  writeFileSync(temporaryBundle, retained.trimEnd() + '\n' + certificate + '\n', { mode: 0o644 });
+  renameSync(temporaryBundle, bundlePath);
+  for (let index = 0; ; index++) {
+    const link = '/etc/ssl/certs/' + hash.stdout.trim() + '.' + index;
+    try { symlinkSync(pemPath, link); break; }
+    catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      try { if (readFileSync(link, 'utf8').trim() === certificate) break; }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+    }
+  }
+  const rebuild = spawn('update-ca-certificates', [], { stdio: 'ignore', detached: true });
+  const stopRebuild = () => {
+    if (rebuild.pid !== undefined) {
+      try { process.kill(-rebuild.pid, 'SIGKILL'); }
+      catch (error) { if (error.code !== 'ESRCH') throw error; }
+    }
+  };
+  process.once('exit', stopRebuild);
+  rebuild.once('error', () => console.error('Container certificate-store rebuild failed to start'));
+  rebuild.once('close', (code, signal) => {
+    process.removeListener('exit', stopRebuild);
+    if (code !== 0) console.error('Container certificate-store rebuild failed', { code, signal });
+  });
+}
 writeFileSync('${PROCESS_OWNER_PATH}', ${supervisorModule}, { mode: 0o600 });
 const { serve } = await import('${PROCESS_OWNER_PATH}');
 await serve({ token, instanceId, idleMillis: 20 * 60_000 });
