@@ -2,13 +2,14 @@ import {
   NATIVE_LISTENER_PORTS,
   NATIVE_OPERATION_LIMIT,
   NATIVE_OUTPUT_LIMIT_BYTES,
+  PROCESS_SUPERVISOR_PORT,
 } from "../NativeExecutionLimits";
 import { NATIVE_RECEIPTS_DIRECTORY } from "../workspace-paths";
 
 export const PROCESS_OWNER_PATH = "/run/kommunikasie/process-owner.mjs";
 export const PROCESS_INSTANCE_PATH = "/run/kommunikasie/instance";
 export const PROCESS_DIRECTORY = "/workspace/.sandbox-agent/processes";
-export const PROCESS_SUPERVISOR_PORT = 4503;
+export { PROCESS_SUPERVISOR_PORT } from "../NativeExecutionLimits";
 /** Advertised by `/health`. Protocol 2 takes `protect` windows instead of Worker timestamps. */
 export const SUPERVISOR_PROTOCOL = 2;
 export const PROCESS_TOKEN_PATH = "/run/kommunikasie/private/process-token";

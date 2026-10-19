@@ -29,6 +29,7 @@ import {
 
 const previewExpiryAlarm = { tag: "sandbox-preview", id: "routes" } as const;
 const previewProgressKey = "sandbox-preview:progress";
+const isPreviewPort = Schema.is(PreviewRoute.fields.port);
 
 const make = Effect.gen(function* () {
   const container = yield* DurableObjectContainer.DurableObjectContainer;
@@ -137,7 +138,7 @@ const make = Effect.gen(function* () {
       admitted(
         Effect.gen(function* () {
           if (
-            input.port !== 5173 ||
+            !isPreviewPort(input.port) ||
             !/^[a-f0-9]{32}$/.test(input.token) ||
             !Number.isSafeInteger(input.generation)
           )
@@ -166,7 +167,7 @@ const make = Effect.gen(function* () {
           const hash = yield* previewTokenHash(input.token);
           const route: PreviewRoute = {
             sandboxId: state.id.toString(),
-            port: 5173,
+            port: input.port,
             materializationId: input.materializationId,
             generation: input.generation,
           };
@@ -269,13 +270,13 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         const request = yield* Worker.NativeRequest;
         const url = new URL(request.url);
-        const port = Number(url.port);
+        const port = Number(url.port || "80");
         const expected = request.headers.get(NATIVE_INSTANCE_HEADER);
         const current = yield* identity();
 
         if (
           url.hostname !== NATIVE_PORT_HOST ||
-          ![...NATIVE_LISTENER_PORTS, 5173].includes(port) ||
+          (!isPreviewPort(port) && !NATIVE_LISTENER_PORTS.some((reserved) => port === reserved)) ||
           !expected ||
           current?.instanceId !== expected ||
           (yield* read("stopping-instance", Schema.String)) === expected ||
