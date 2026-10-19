@@ -10,14 +10,17 @@ const Failure = Schema.fromJsonString(
 // while draining stderr, instead of waiting for an opening frame on stderr.
 // Keep this on native exec so existing containers need no supervisor upgrade.
 const source = String.raw`
-const { createReadStream } = require('node:fs');
-const { pipeline } = require('node:stream');
-pipeline(createReadStream(process.argv[1]), process.stdout, error => {
-  if (error) {
-    process.stderr.write(JSON.stringify({ code: error.code ?? 'UNKNOWN', detail: error.message }));
-    process.exitCode = 1;
+try {
+  const writer = Bun.stdout.writer();
+  for await (const chunk of Bun.file(process.argv[1]).stream()) {
+    writer.write(chunk);
+    await writer.flush();
   }
-});
+  await writer.end();
+} catch (error) {
+  process.stderr.write(JSON.stringify({ code: error.code ?? 'UNKNOWN', detail: error.message }));
+  process.exitCode = 1;
+}
 `;
 
 /** @internal Remove with the upstream SDK and helper's ordered-stream fix. */
