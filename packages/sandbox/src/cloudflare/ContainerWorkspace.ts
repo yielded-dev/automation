@@ -27,6 +27,7 @@ const make = Effect.gen(function* () {
     read,
     identity,
     files,
+    readFile,
     readFileString,
     admitted,
     mutateFiles,
@@ -121,7 +122,7 @@ const make = Effect.gen(function* () {
     readFileString: (path: string, start: EnsureOptions) =>
       ensure(start).pipe(Effect.andThen(readFileString(path))),
     readFile: (path: string, start: EnsureOptions) =>
-      ensure(start).pipe(Effect.andThen(files.readFile(path))),
+      ensure(start).pipe(Effect.andThen(readFile(path))),
     lstat: (path: string, start: EnsureOptions) =>
       ensure(start).pipe(Effect.andThen(files.lstat(path))),
     writeFile: (path: string, content: FileContent, start: EnsureOptions) =>

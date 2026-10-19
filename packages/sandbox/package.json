@@ -43,7 +43,7 @@
     "test:e2e:checkpoints": "node test/e2e/checkpoints.mjs"
   },
   "dependencies": {
-    "@cloudflare/sandbox": "1.0.0"
+    "@cloudflare/sandbox": "1.0.1"
   },
   "peerDependencies": {
     "effect": "^4.0.3",
