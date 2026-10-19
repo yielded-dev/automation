@@ -1,5 +1,13 @@
 # @yielded/sandbox
 
+## 0.3.2
+
+### Patch Changes
+
+- [#16](https://github.com/yielded-dev/automation/pull/16) [`8abca50`](https://github.com/yielded-dev/automation/commit/8abca50721dd578e24848cdffea990f22fb0d322) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Allow hosts to grant previews on their application's port while keeping native control ports private.
+
+- [#18](https://github.com/yielded-dev/automation/pull/18) [`50faba2`](https://github.com/yielded-dev/automation/commit/50faba21ac2713817ef8056e4808ccd6ed9a6548) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reject preview access to the native Codex control port while keeping previously stored grants readable for revocation and cleanup.
+
 ## 0.3.1
 
 ### Patch Changes
