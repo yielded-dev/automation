@@ -8,6 +8,7 @@ import { DurableObjectNamespace, type ContainerFiles } from "effect-cf";
 
 import { causeFromFailureDiagnostic, FailureDiagnostic } from "../observability/FailureDiagnostic";
 import {
+  CODEX_NATIVE_PORT,
   NATIVE_LISTENER_PORTS,
   NATIVE_OUTPUT_LIMIT_BYTES,
   PROCESS_SUPERVISOR_PORT,
@@ -171,6 +172,7 @@ export const PreviewRoute = Schema.Struct({
     Schema.isLessThanOrEqualTo(65_535),
     Schema.makeFilter(
       (port) =>
+        port !== CODEX_NATIVE_PORT &&
         port !== PROCESS_SUPERVISOR_PORT &&
         NATIVE_LISTENER_PORTS.every((reserved) => port !== reserved),
       { expected: "an application port, not a native control port" },
