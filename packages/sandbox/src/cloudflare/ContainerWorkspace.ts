@@ -55,6 +55,14 @@ const make = Effect.gen(function* () {
       if (input.sequence < sequence)
         return yield* error("snapshot", "A newer checkpoint capture has already been accepted");
       if (input.sequence === sequence) {
+        if (
+          "sequence" in previous.input &&
+          (previous.input.name ?? "workspace") !== (input.name ?? "workspace")
+        )
+          return yield* error(
+            "snapshot",
+            "This sequence already belongs to a different snapshot name",
+          );
         if (previous.result !== null) return previous.result;
 
         return yield* error("snapshot", "Capture outcome is unknown; snapshot was not repeated");
@@ -75,7 +83,7 @@ const make = Effect.gen(function* () {
     yield* state.storage.sync().pipe(Effect.withSpan("SandboxContainer.snapshotOutputGate"));
     const snapshot = yield* Effect.gen(function* () {
       const requestedAt = yield* Clock.currentTimeMillis;
-      const result = yield* container.snapshotContainer({ name: "workspace" });
+      const result = yield* container.snapshotContainer({ name: input.name ?? "workspace" });
 
       yield* Effect.annotateCurrentSpan({
         "sandbox.snapshot.sizeBytes": result.size,
@@ -92,6 +100,7 @@ const make = Effect.gen(function* () {
       instanceId: current.instanceId,
       capturedAt: now,
       expiresAt: now + SNAPSHOT_TTL,
+      name: input.name ?? "workspace",
     };
 
     yield* state.storage.kv.put("workspace-checkpoint", { input, result: saved });

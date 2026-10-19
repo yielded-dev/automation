@@ -105,6 +105,7 @@ function capture(result, identity) {
       "instanceId",
       "capturedAt",
       "expiresAt",
+      "name",
     ].sort(),
   );
   assert.equal(result.after.running, true, "Capture stopped the container");
@@ -207,17 +208,22 @@ try {
     assert.equal(seed.workload.dependencies, true);
   }
   const first = await rpc(source, "checkpoint", {
-    input: { instanceId: seed.identity.instanceId, sequence: 0 },
+    input: { instanceId: seed.identity.instanceId, sequence: 0, name: "version-0" },
   });
   capture(first, seed.identity);
   const retry = await rpc(source, "checkpoint", {
-    input: { instanceId: seed.identity.instanceId, sequence: 0 },
+    input: { instanceId: seed.identity.instanceId, sequence: 0, name: "version-0" },
   });
   assert.deepEqual(
     retry.checkpoint,
     first.checkpoint,
     "Latest same-sequence retry changed the receipt",
   );
+  const renamed = await request(source, "checkpoint", {
+    input: { instanceId: seed.identity.instanceId, sequence: 0, name: "different-save" },
+  });
+  assert.equal(renamed.ok, false, "A different save reused another capture's receipt");
+  assert.deepEqual((await rpc(source, "describe")).checkpoint, first.checkpoint);
   await rpc(source, "version", { version: 1 });
   const second = await rpc(source, "checkpoint", {
     input: { instanceId: seed.identity.instanceId, sequence: 1 },

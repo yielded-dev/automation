@@ -174,10 +174,10 @@ export const prepareWorkspaceBaseline = Effect.fn("WorkspaceBaseline.prepare")(f
   const result = yield* Effect.gen(function* () {
     const savedCheckpoint =
       (yield* store.workspaceCheckpoint.get) ??
-      recoverRepositoryCheckpoint(
+      (yield* recoverRepositoryCheckpoint(
         description.checkpoint,
         yield* store.workspaceCheckpointInput.get,
-      );
+      ));
     const savedSetup = yield* store.repositorySetupReceipt.get;
 
     // An acknowledged native capture can be published after the scratch container is lost.

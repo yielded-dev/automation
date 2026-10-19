@@ -290,6 +290,7 @@ const Input = Schema.Struct({
   waitForFork: Schema.optionalKey(Schema.Boolean),
   sourcePinTimeout: Schema.optionalKey(Schema.Boolean),
   checkpointBoundary: Schema.optionalKey(Schema.Literals(["interrupt", "replace"])),
+  checkpointBeforeSetup: Schema.optionalKey(Schema.Boolean),
   api: Schema.optionalKey(Schema.Literal("legacy")),
   callbackFailure: Schema.optionalKey(Schema.Boolean),
   generationHandoff: Schema.optionalKey(
@@ -717,6 +718,8 @@ const run = Effect.fn("GitHistoryFixture.run")(
         const marker = crypto.randomUUID();
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, marker);
         yield* store.materializationId.put(marker);
+        if (value.checkpointBeforeSetup)
+          yield* sandbox.checkpoint({ instanceId: identity.instanceId, sequence: 0 });
         yield* prepareRepositorySetup({
           sourceKey: value.source.repositoryName,
           sourceHead: cloned.head,
@@ -883,6 +886,7 @@ const run = Effect.fn("GitHistoryFixture.run")(
           checkpoint && receipt
             ? { repository: "fixture", checkpoint, report: receipt.report }
             : null,
+        setupReport: receipt?.report ?? null,
         fork: fork?.initialized
           ? {
               repositoryName: fork.forkName,

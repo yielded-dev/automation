@@ -64,9 +64,10 @@ const save = Effect.gen(function* () {
 ```
 
 Retain the sequence before capture and increase it for each save in that boot.
-Retrying the latest sequence returns its original receipt; older sequences and
-uncertain captures are rejected without taking another snapshot. Keep workspace
-writes settled until capture returns.
+An optional `name` is passed to the native snapshot API and must stay unchanged
+on retry. Retrying the latest sequence returns its original receipt; older
+sequences and uncertain captures are rejected without taking another snapshot.
+Keep workspace writes settled until capture returns.
 
 After the container stops, `sandbox.restore(saved)` starts from that checkpoint
 and returns the new instance identity. It rejects an unavailable checkpoint or a
@@ -74,6 +75,9 @@ different live workspace. Processes start fresh. Checkpoints are image- and
 class-specific and have an expiry; keep `backupDirectory` receipts for portable,
 long-lived saves and restore those with `restoreDirectory` after an image upgrade.
 Repository preparation adds its source checks and sharing policy above this API.
+Capture and restore use Cloudflare's native
+[`snapshotContainer()` and `start({ containerSnapshot })`](https://developers.cloudflare.com/containers/guides/snapshots/)
+with `durable_object` scheduling.
 
 ## Repository preparation
 

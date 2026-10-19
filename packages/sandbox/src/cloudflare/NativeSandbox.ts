@@ -47,6 +47,7 @@ export const SandboxCheckpoint = Schema.Struct({
   instanceId: Schema.String,
   capturedAt: Schema.Finite,
   expiresAt: Schema.Finite,
+  name: Schema.optionalKey(Schema.String),
 });
 export type SandboxCheckpoint = typeof SandboxCheckpoint.Type;
 export const WorkspaceCheckpoint = Schema.Struct({
@@ -60,6 +61,8 @@ export const CheckpointInput = Schema.Struct({
   instanceId: Schema.String,
   /** Increase for each save in this boot. Only the latest receipt is retained. */
   sequence: Schema.Natural.check(Schema.isLessThanOrEqualTo(Number.MAX_SAFE_INTEGER)),
+  /** Native snapshot name; retries must keep the accepted name. */
+  name: Schema.optionalKey(Schema.String),
 });
 export type CheckpointInput = typeof CheckpointInput.Type;
 export interface EnsureOptions {

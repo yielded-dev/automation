@@ -7,6 +7,7 @@ import {
   type SandboxCheckpoint,
   WorkspaceCheckpoint,
 } from "./NativeSandbox";
+import { resourceHash } from "./resource-names";
 
 export const RepositoryCheckpointInput = Schema.Struct({
   instanceId: Schema.String,
@@ -28,16 +29,27 @@ export const repositoryCheckpoint = (
   materializationId: input.materializationId,
 });
 
-export const recoverRepositoryCheckpoint = (
+const repositoryCheckpointName = Effect.fnUntraced(function* (input: RepositoryCheckpointInput) {
+  return `repository-${yield* resourceHash(
+    JSON.stringify([input.instanceId, input.materializationId, input.head, input.setupFingerprint]),
+  )}`;
+});
+
+export const recoverRepositoryCheckpoint = Effect.fnUntraced(function* (
   checkpoint: SandboxCheckpoint | null,
   input: RepositoryCheckpointInput | null,
-): WorkspaceCheckpoint | null =>
+) {
   // Older native receipts carried these fields before preparation owned them.
-  Schema.is(WorkspaceCheckpoint)(checkpoint)
-    ? checkpoint
-    : checkpoint !== null && input?.snapshotAllowed && checkpoint.instanceId === input.instanceId
-      ? repositoryCheckpoint(checkpoint, input)
-      : null;
+  if (Schema.is(WorkspaceCheckpoint)(checkpoint)) return checkpoint;
+  if (
+    checkpoint !== null &&
+    input?.snapshotAllowed &&
+    checkpoint.instanceId === input.instanceId &&
+    checkpoint.name === (yield* repositoryCheckpointName(input))
+  )
+    return repositoryCheckpoint(checkpoint, input);
+  return null;
+});
 
 /** The preparation owner holds the source generation until capture finishes. */
 export const captureRepositoryCheckpoint = Effect.fnUntraced(function* (
@@ -73,7 +85,11 @@ export const captureRepositoryCheckpoint = Effect.fnUntraced(function* (
       cause: new Error("Checkpoint source or materialization does not match"),
     });
 
-  const captured = yield* sandbox.checkpoint({ instanceId: input.instanceId, sequence: 0 });
+  const captured = yield* sandbox.checkpoint({
+    instanceId: input.instanceId,
+    sequence: 0,
+    name: yield* repositoryCheckpointName(input),
+  });
 
   if (
     Schema.is(WorkspaceCheckpoint)(captured) &&

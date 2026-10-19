@@ -636,8 +636,24 @@ async function forkRegression(baseline) {
   await release("generation-handoff");
 }
 
+async function preparationReceipt() {
+  const result = await run(
+    "checkpoint-before-install",
+    "prepare",
+    fixture.sources.base,
+    undefined,
+    [fixture.base],
+    { checkpointBeforeSetup: true },
+  );
+  assert.equal(result.installCount, 1);
+  assert.equal(result.baseline, null, "An earlier generic capture is not a prepared baseline");
+  assert.equal(result.setupReport.checkpoint.capture, "failed");
+  await release(result.name);
+}
+
 async function regression() {
   await mf.ready;
+  if (suite === "all") await preparationReceipt();
   const source = suite === "inspect" ? fixture.sources.candidate : fixture.sources.base;
   const full = await run("prepared-full", "prepare", source, undefined, [source.commitSha], {
     includeHistory: true,

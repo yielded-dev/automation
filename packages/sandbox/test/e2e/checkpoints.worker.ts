@@ -55,6 +55,7 @@ export class Sandbox extends makeSandboxAgentContainer(containerOptions) {
     super(fixtureState, env);
   }
   async seedLegacy(checkpoint: SandboxCheckpoint, snapshotAllowed: boolean) {
+    const { name: _name, ...legacyCheckpoint } = checkpoint;
     const repository = {
       setupFingerprint: "legacy-setup",
       head: "a".repeat(40),
@@ -67,7 +68,7 @@ export class Sandbox extends makeSandboxAgentContainer(containerOptions) {
         ...repository,
         snapshotAllowed,
       },
-      result: snapshotAllowed ? { ...checkpoint, ...repository } : null,
+      result: snapshotAllowed ? { ...legacyCheckpoint, ...repository } : null,
     };
     await this.fixtureState.storage.put("workspace-checkpoint", record);
     return record;

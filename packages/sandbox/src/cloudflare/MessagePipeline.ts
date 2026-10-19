@@ -643,7 +643,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
     storedCheckpoint.expiresAt > now + WORKSPACE_SNAPSHOT_HEADROOM
       ? storedCheckpoint
       : null;
-  const ownerCheckpoint = recoverRepositoryCheckpoint(
+  const ownerCheckpoint = yield* recoverRepositoryCheckpoint(
     description.checkpoint,
     yield* store.workspaceCheckpointInput.get,
   );
