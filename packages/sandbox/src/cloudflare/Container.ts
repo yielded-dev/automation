@@ -29,7 +29,8 @@ import {
   type HttpReadinessOptions,
   type InspectionOptions,
   NativeSandboxNamespace,
-  type PreparedWorkspace,
+  type CheckpointInput,
+  type SandboxCheckpoint,
   ProcessResource,
   NATIVE_PORT_HOST,
   type PreviewGrant,
@@ -64,6 +65,8 @@ export const makeSandboxAgentContainer = <
       ...preview,
       ...outbound,
       ensure: (input: EnsureOptions = {}) => admitted(lifecycle.ensure(input)),
+      restore: (checkpoint: SandboxCheckpoint, input: EnsureOptions) =>
+        admitted(lifecycle.restore(checkpoint, input)),
       revokePreview: admitted(lifecycle.revokePreview),
     };
   });
@@ -259,10 +262,15 @@ export const makeSandboxAgentContainer = <
           "SandboxContainer.remove",
           Effect.flatMap(Runtime, (r) => r.remove(path, recursive, force, start)),
         ),
-      checkpoint: (input: PreparedWorkspace) =>
+      checkpoint: (input: CheckpointInput) =>
         reply(
           "SandboxContainer.checkpoint",
           Effect.flatMap(Runtime, (r) => r.checkpoint(input)),
+        ),
+      restore: (checkpoint: SandboxCheckpoint, input: EnsureOptions) =>
+        reply(
+          "SandboxContainer.restore",
+          Effect.flatMap(Runtime, (r) => r.restore(checkpoint, input)),
         ),
       configureOutboundAuthority: (authority: unknown) =>
         reply(

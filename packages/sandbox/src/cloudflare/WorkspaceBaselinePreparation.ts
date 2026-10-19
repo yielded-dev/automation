@@ -10,6 +10,7 @@ import { sandboxFor } from "./Bindings";
 import { SandboxAgentConfig, sandboxAgentDeadlinePolicy } from "./Config";
 import { NativeWorkspaceIdentity } from "./NativeWorkspaceIdentity";
 import { OutboundAuthority } from "./OutboundAuthority";
+import { recoverRepositoryCheckpoint } from "./RepositoryCheckpoint";
 import {
   prepareRepositorySetup,
   readRepositorySetup,
@@ -171,7 +172,12 @@ export const prepareWorkspaceBaseline = Effect.fn("WorkspaceBaseline.prepare")(f
     head: input.source.commitSha,
   };
   const result = yield* Effect.gen(function* () {
-    const savedCheckpoint = (yield* store.workspaceCheckpoint.get) ?? description.checkpoint;
+    const savedCheckpoint =
+      (yield* store.workspaceCheckpoint.get) ??
+      (yield* recoverRepositoryCheckpoint(
+        description.checkpoint,
+        yield* store.workspaceCheckpointInput.get,
+      ));
     const savedSetup = yield* store.repositorySetupReceipt.get;
 
     // An acknowledged native capture can be published after the scratch container is lost.

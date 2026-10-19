@@ -46,6 +46,39 @@ identity and deadline; source changes cannot silently retarget an accepted turn.
 Effect scopes release leases, subscriptions and temporary credentials. A retained
 result can be recovered without asking the model to produce it again.
 
+## Filesystem checkpoints
+
+`makeNativeSandbox` provides files, processes and checkpoints without a repository
+or coding harness. The host supplies `NativeSandboxNamespace.layer({ binding })`:
+
+```ts
+import { Effect } from "effect";
+import { makeNativeSandbox } from "@yielded/sandbox/cloudflare";
+
+const save = Effect.gen(function* () {
+  const sandbox = yield* makeNativeSandbox("workspace-123");
+  const boot = yield* sandbox.ensure();
+  yield* sandbox.writeFile("/workspace/hello.txt", "Hello");
+  return yield* sandbox.checkpoint({ instanceId: boot.instanceId, sequence: 0 });
+});
+```
+
+Retain the sequence before capture and increase it for each save in that boot.
+An optional `name` is passed to the native snapshot API and must stay unchanged
+on retry. Retrying the latest sequence returns its original receipt; older
+sequences and uncertain captures are rejected without taking another snapshot.
+Keep workspace writes settled until capture returns.
+
+After the container stops, `sandbox.restore(saved)` starts from that checkpoint
+and returns the new instance identity. It rejects an unavailable checkpoint or a
+different live workspace. Processes start fresh. Checkpoints are image- and
+class-specific and have an expiry; keep `backupDirectory` receipts for portable,
+long-lived saves and restore those with `restoreDirectory` after an image upgrade.
+Repository preparation adds its source checks and sharing policy above this API.
+Capture and restore use Cloudflare's native
+[`snapshotContainer()` and `start({ containerSnapshot })`](https://developers.cloudflare.com/containers/guides/snapshots/)
+with `durable_object` scheduling.
+
 ## Repository preparation
 
 Supply `RepositoryPreparationSources` to authorize and select the repository's
