@@ -100,7 +100,7 @@ const Input = Schema.Union([
   Schema.Struct({ name: Name, mode: Schema.Literal("delete-backup"), backup: Backup }),
   Schema.Struct({
     name: Name,
-    mode: Schema.Literals(["backup", "inspect", "describe", "park", "destroy"]),
+    mode: Schema.Literals(["backup", "inspect", "read-files", "describe", "park", "destroy"]),
   }),
 ]);
 
@@ -216,6 +216,26 @@ ${summary}`),
       return yield* native.describe;
     case "inspect":
       return { workload: JSON.parse(yield* command(imports + summary)), heartbeat: yield* pulse() };
+    case "read-files": {
+      // Small reads after restore exposed the SDK's stdout/stderr deadlock (#951).
+      const expected = yield* native.readFileString(firstFile);
+      for (let index = 0; index < 32; index++) {
+        if ((yield* native.readFileString(firstFile)) !== expected)
+          return yield* Effect.die("Repeated read changed file contents");
+      }
+      const bytes = Uint8Array.from({ length: 256 * 1024 + 19 }, (_, index) => index % 256);
+      const path = `${directory}/binary ' file`;
+      yield* native.writeFile(path, bytes);
+      const response = yield* native.readFile(path);
+      const actual = new Uint8Array(yield* Effect.promise(() => response.arrayBuffer()));
+      if (actual.length !== bytes.length || actual.some((byte, index) => byte !== bytes[index]))
+        return yield* Effect.die("Streamed binary read changed file contents");
+      const endless = yield* native.readFile("/dev/zero");
+      yield* Effect.promise(() => endless.body!.cancel());
+      if ((yield* native.readFileString(firstFile)) !== expected)
+        return yield* Effect.die("Read after response cancellation failed");
+      return { repeatedReads: 32, binaryBytes: actual.length, cancelled: true };
+    }
     case "checkpoint": {
       const before = yield* native.describe;
       const heartbeatBefore = before.running ? yield* pulse() : null;

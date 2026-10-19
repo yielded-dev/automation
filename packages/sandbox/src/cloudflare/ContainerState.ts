@@ -10,6 +10,7 @@ import {
 import { failureDiagnostic } from "../observability/FailureDiagnostic";
 
 import type { SandboxAgentContainerOptions } from "./ContainerOutbound";
+import { makeReadFile } from "./NativeFileRead";
 import {
   CheckpointInput,
   type NativeReply,
@@ -139,12 +140,18 @@ const make = <Environment extends Cloudflare.Env, EventServices, EventError>(
       mutations: number;
     } = { revision: 0, mutations: 0 };
     const files = ContainerFiles.fromFiles(new Files(container.raw));
-    // Keep cancellation attached until the SDK finishes both native exec streams.
-    // Acquiring the Response separately leaves its late completion outside that signal.
+    const nativeReadFile = makeReadFile(container.raw);
+    const readFile = (path: string) =>
+      Effect.tryPromise({
+        try: (signal) => nativeReadFile(path, signal),
+        catch: (cause) =>
+          new DurableObjectContainer.ContainerError({ operation: "files.readFile", cause }),
+      });
+    // Keep cancellation attached through the response body and native process exit.
     const readFileString = (path: string) =>
       Effect.tryPromise({
         try: async (signal) => {
-          const response = await files.raw.readFile(path, { signal });
+          const response = await nativeReadFile(path, signal);
 
           return await response.text();
         },
@@ -184,6 +191,7 @@ const make = <Environment extends Cloudflare.Env, EventServices, EventError>(
       read,
       identity,
       files,
+      readFile,
       readFileString,
       admitted,
       mutateFiles,

@@ -279,6 +279,11 @@ try {
   assert.equal(restored1.identity.restoredSnapshotId, second.checkpoint.snapshotId);
   assert.equal(restored1.content, content(1));
   await verified(source, seed, 1);
+  assert.deepEqual(await rpc(source, "read-files"), {
+    repeatedReads: 32,
+    binaryBytes: 256 * 1024 + 19,
+    cancelled: true,
+  });
   await rpc(source, "park");
   const rejected = `${runName}-unavailable`;
   for (const [reason, patch] of [
