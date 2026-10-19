@@ -1,5 +1,12 @@
 # @yielded/automation
 
+## 0.3.1
+
+### Patch Changes
+
+- Updated dependencies [[`ebb045e`](https://github.com/yielded-dev/automation/commit/ebb045e4991a7e7ea45f55b807ead461fcf7b95c)]:
+  - @yielded/sandbox@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes

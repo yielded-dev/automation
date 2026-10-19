@@ -1,5 +1,11 @@
 # @yielded/sandbox
 
+## 0.3.1
+
+### Patch Changes
+
+- [#14](https://github.com/yielded-dev/automation/pull/14) [`ebb045e`](https://github.com/yielded-dev/automation/commit/ebb045e4991a7e7ea45f55b807ead461fcf7b95c) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Avoid stalled workspace file reads by streaming through native exec while preserving file errors and cancellation. Update the Cloudflare Sandbox SDK and matching container helper to 1.0.1.
+
 ## 0.3.0
 
 ### Minor Changes
