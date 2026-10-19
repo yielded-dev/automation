@@ -1,5 +1,16 @@
 # @yielded/automation
 
+## 0.3.0
+
+### Minor Changes
+
+- [#12](https://github.com/yielded-dev/automation/pull/12) [`e0c851d`](https://github.com/yielded-dev/automation/commit/e0c851dd013610d8f02c975019746fe04e3781db) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Save filesystem checkpoints without repository preparation using `checkpoint({ instanceId, sequence })`, with repeated saves per boot and a retained receipt for safe retries. Restore with `restore(checkpoint)`, which rejects unavailable checkpoints instead of opening an empty workspace; existing repository checkpoint validation and saved receipts remain supported.
+
+### Patch Changes
+
+- Updated dependencies [[`e0c851d`](https://github.com/yielded-dev/automation/commit/e0c851dd013610d8f02c975019746fe04e3781db)]:
+  - @yielded/sandbox@0.3.0
+
 ## 0.2.2
 
 ### Patch Changes
