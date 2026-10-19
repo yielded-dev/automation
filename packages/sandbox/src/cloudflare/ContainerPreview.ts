@@ -3,7 +3,11 @@ import { DurableObjectAlarm, DurableObjectContainer, DurableObjectState, Worker 
 
 import { withErrorReportingScope } from "../observability/RuntimeDiagnostics";
 
-import { NATIVE_LISTENER_PORTS } from "../NativeExecutionLimits";
+import {
+  CODEX_NATIVE_PORT,
+  NATIVE_LISTENER_PORTS,
+  PROCESS_SUPERVISOR_PORT,
+} from "../NativeExecutionLimits";
 import { MATERIALIZATION_MARKER } from "../workspace-paths";
 import { ContainerLifecycle } from "./ContainerLifecycle";
 import { ContainerProcesses } from "./ContainerProcesses";
@@ -29,7 +33,17 @@ import {
 
 const previewExpiryAlarm = { tag: "sandbox-preview", id: "routes" } as const;
 const previewProgressKey = "sandbox-preview:progress";
-const isPreviewPort = Schema.is(PreviewRoute.fields.port);
+const isPreviewPort = Schema.is(
+  PreviewRoute.fields.port.check(
+    Schema.makeFilter(
+      (port) =>
+        port !== CODEX_NATIVE_PORT &&
+        port !== PROCESS_SUPERVISOR_PORT &&
+        NATIVE_LISTENER_PORTS.every((reserved) => port !== reserved),
+      { expected: "an application port, not a native control port" },
+    ),
+  ),
+);
 
 const make = Effect.gen(function* () {
   const container = yield* DurableObjectContainer.DurableObjectContainer;
@@ -107,6 +121,8 @@ const make = Effect.gen(function* () {
       Effect.gen(function* () {
         if (!/^[a-f0-9]{64}$/.test(hash))
           return yield* error("preview.register", "Invalid preview identity");
+        if (route !== null && !isPreviewPort(route.port))
+          return yield* error("preview.register", "Invalid preview port");
         yield* alarms.transaction((tx) =>
           Effect.gen(function* () {
             const key = `preview:${hash}`;
@@ -129,7 +145,7 @@ const make = Effect.gen(function* () {
         if (!/^[a-f0-9]{64}$/.test(hash)) return null;
         const record = yield* read(`preview:${hash}`, PreviewIndexRecord);
 
-        if (!record) return null;
+        if (!record || !isPreviewPort(record.route.port)) return null;
         if (record.expiresAt <= (yield* Clock.currentTimeMillis)) return null;
 
         return record.route;
@@ -208,6 +224,7 @@ const make = Effect.gen(function* () {
 
       if (
         !saved ||
+        !isPreviewPort(saved.route.port) ||
         !current ||
         saved.hash !== (yield* previewTokenHash(token)) ||
         saved.instanceId !== current.instanceId ||

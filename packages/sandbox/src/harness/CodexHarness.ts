@@ -11,6 +11,7 @@ import { isSandboxFileMissing } from "../cloudflare/NativeSandbox";
 import { NativeWorkspaceIdentity } from "../cloudflare/NativeWorkspaceIdentity";
 import { SessionStateStore, type StoredCodexTurn } from "../cloudflare/SessionStateStore";
 import { toJson } from "../Http";
+import { CODEX_NATIVE_PORT } from "../NativeExecutionLimits";
 import { CODEX_VERSION } from "../RuntimeVersions";
 import { SessionSandbox } from "../SessionSandbox";
 import { MATERIALIZATION_MARKER, REPO_DIR } from "../workspace-paths";
@@ -87,7 +88,7 @@ export const CodexHarnessLive: Layer.Layer<Harness> = Layer.succeed(Harness)({
             env: { CODEX_HOME: CODEX_HOME_DIR },
             ...(workspaceIdentity === null ? {} : { workspaceIdentity }),
             port: CODEX_APP_SERVER_PORT,
-            nativePort: 4501,
+            nativePort: CODEX_NATIVE_PORT,
             mode: "codex",
             // Bootstrap belongs to this saved native dispatch; reattachment never resets home.
             command: [
@@ -133,7 +134,7 @@ export const CodexHarnessLive: Layer.Layer<Harness> = Layer.succeed(Harness)({
                   ]
                 : []),
               "--listen",
-              "ws://127.0.0.1:4501",
+              `ws://127.0.0.1:${CODEX_NATIVE_PORT}`,
               "-c",
               `model=${toJson(request.model)}`,
               "-c",
