@@ -14,14 +14,15 @@ local workerd with real storage and alarms. Foreign APIs, host authority and
 model harnesses are scripted; these fixtures do not establish live-provider or
 hosted behavior.
 
-| Command                                                     | Coverage                                                                                      | Additional prerequisites         |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------- |
-| `vp run -F @yielded/automation test:e2e`                    | Typed RPC inspection, terminal commit, lost/rejected notification, reload and no model replay | None                             |
-| `vp run -F @yielded/automation test:e2e:github`             | Bounded webhook intake, signatures, App authentication and GitHub client                      | None                             |
-| `vp run -F @yielded/automation test:e2e:publication`        | Publication receipts, exact-head guards and ambiguous outcomes                                | Local Postgres                   |
-| `vp run -F @yielded/sandbox test:e2e -- <image>`            | Preparation, snapshot restore, retries, changed setup and service failure                     | Docker images                    |
-| `vp run -F @yielded/sandbox test:e2e:git -- <image> 1 fork` | Retained fork intent, original deadlines, source fences and recovery                          | Docker images                    |
-| `vp run test:integration -- <image> prepare-events`         | Event coalescing, interrupted preparation and pending source changes                          | Docker images and local Postgres |
+| Command                                                                     | Coverage                                                                                      | Additional prerequisites         |
+| --------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------- | -------------------------------- |
+| `vp run -F @yielded/automation test:e2e`                                    | Typed RPC inspection, terminal commit, lost/rejected notification, reload and no model replay | None                             |
+| `vp run -F @yielded/automation test:e2e:github`                             | Bounded webhook intake, signatures, App authentication and GitHub client                      | None                             |
+| `vp run -F @yielded/automation test:e2e:publication`                        | Publication receipts, exact-head guards and ambiguous outcomes                                | Local Postgres                   |
+| `vp run -F @yielded/sandbox test:e2e -- <image>`                            | Preparation, snapshot restore, retries, changed setup and service failure                     | Docker images                    |
+| `vp run -F @yielded/sandbox test:e2e:git -- <image> 1 fork`                 | Retained fork intent, original deadlines, source fences and recovery                          | Docker images                    |
+| `vp run -F @yielded/sandbox test:e2e:checkpoints -- <image> <evidence-dir>` | Filesystem checkpoints, repeated saves, legacy receipts and strict restore                    | Docker images                    |
+| `vp run test:integration -- <image> prepare-events`                         | Event coalescing, interrupted preparation and pending source changes                          | Docker images and local Postgres |
 
 CI runs the package unit tests, Automation's native inspection/recovery fixture,
 and `vp run check:packages`. The latter installs each tarball into an isolated

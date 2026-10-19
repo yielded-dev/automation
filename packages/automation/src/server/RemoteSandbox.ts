@@ -11,7 +11,7 @@ import {
   ProcessStatus,
   RepositoryAuthorizationGrant,
   SandboxOperationError,
-  WorkspaceCheckpoint,
+  SandboxCheckpoint,
   type EnsureOptions,
   type ExecOptions,
   type NativeSandbox,
@@ -25,7 +25,7 @@ const Description = Schema.Struct({
   classIdentity: Schema.String,
   current: Schema.NullOr(NativeContainerIdentity),
   running: Schema.Boolean,
-  checkpoint: Schema.NullOr(WorkspaceCheckpoint),
+  checkpoint: Schema.NullOr(SandboxCheckpoint),
 });
 const Forward = Schema.Struct({ operationId: Schema.String, instanceId: Schema.String });
 
@@ -326,7 +326,8 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
     lease: (id, active, renewal = false) => voidCall({ _tag: "Lease", id, active, renewal }),
     destroy: voidCall({ _tag: "Destroy" }),
     park: voidCall({ _tag: "Park" }),
-    checkpoint: () => Effect.succeed(null),
+    checkpoint: () => unsupported("checkpoint"),
+    restore: () => unsupported("restore"),
     grantPreview: () => unsupported("grantPreview"),
     revokePreview: unsupported("revokePreview"),
     configureOutboundAuthority: () => unsupported("configureOutboundAuthority"),

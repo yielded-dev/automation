@@ -579,6 +579,27 @@ async function forkRegression(baseline) {
   assert.equal(unchanged.persisted.head, fixture.base);
   assert.equal(unchanged.attemptedHead, null, "Unchanged content needs no handoff");
   assert.equal(writes(unchanged).length, 0);
+  fixture.moveMain(fixture.sources.publication.repositoryName, fixture.candidate);
+  const rematerialized = await probe(
+    "generation-unchanged",
+    { generationHandoff: "unchanged" },
+    { ...fixture.sources.publication, commitSha: fixture.candidate },
+  );
+  assert.equal(
+    rematerialized.pipelineFailure,
+    null,
+    JSON.stringify(rematerialized.pipelineDiagnostic),
+  );
+  assert.equal(rematerialized.persisted.head, fixture.candidate);
+  assert.equal(rematerialized.containerInstanceId, unchanged.containerInstanceId);
+  assert.notEqual(rematerialized.materializationId, unchanged.materializationId);
+  assert.equal(
+    harnesses(rematerialized).length,
+    1,
+    "A capture conflict must not abort the next turn",
+  );
+  assert.equal(writes(rematerialized).length, 0);
+  fixture.moveMain(fixture.sources.publication.repositoryName, fixture.base);
   await release("generation-unchanged");
 
   const deadlineAtMs = Date.now() + 60_000;

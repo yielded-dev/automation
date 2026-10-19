@@ -10,7 +10,13 @@ import {
 import { failureDiagnostic } from "../observability/FailureDiagnostic";
 
 import type { SandboxAgentContainerOptions } from "./ContainerOutbound";
-import { type NativeReply, PreviewRoute, WorkspaceCheckpoint } from "./NativeSandbox";
+import {
+  CheckpointInput,
+  type NativeReply,
+  PreviewRoute,
+  SandboxCheckpoint,
+  WorkspaceCheckpoint,
+} from "./NativeSandbox";
 export const RepositoryAuthorization = Schema.Struct({
   remote: Schema.String,
   credential: Schema.String,
@@ -54,7 +60,7 @@ export const SupervisorReply = Schema.Union([
     error: Schema.Struct({ code: Schema.String, message: Schema.String }),
   }),
 ]);
-export const CheckpointRecord = Schema.Struct({
+const LegacyCheckpointRecord = Schema.Struct({
   input: Schema.Struct({
     captureId: Schema.String,
     instanceId: Schema.String,
@@ -65,7 +71,10 @@ export const CheckpointRecord = Schema.Struct({
   }),
   result: Schema.NullOr(WorkspaceCheckpoint),
 });
-export const sameCheckpointInput = Schema.toEquivalence(CheckpointRecord.fields.input);
+export const CheckpointRecord = Schema.Union([
+  LegacyCheckpointRecord,
+  Schema.Struct({ input: CheckpointInput, result: Schema.NullOr(SandboxCheckpoint) }),
+]);
 export const error = (operation: string, message: string) =>
   new DurableObjectContainer.ContainerError({ operation, cause: new Error(message) });
 
@@ -82,6 +91,9 @@ export class NativeProcessError extends Data.TaggedError("NativeProcessError")<{
   readonly code: string;
   readonly cause: unknown;
 }> {}
+export class CheckpointUnavailableError extends Data.TaggedError("CheckpointUnavailableError")<{
+  readonly reason: "expired" | "image" | "class";
+}> {}
 export const failureCode = <E>(cause: Cause.Cause<E>): string | undefined => {
   const reason = cause.reasons[0];
 
@@ -92,6 +104,7 @@ export const failureCode = <E>(cause: Cause.Cause<E>): string | undefined => {
   if (value instanceof ReadinessProcessError) return value.code;
   if (value instanceof LeaseLostError) return "LEASE_LOST";
   if (value instanceof NativeProcessError) return value.code;
+  if (value instanceof CheckpointUnavailableError) return "CHECKPOINT_UNAVAILABLE";
 
   return Predicate.isTagged(value, "ContainerError") &&
     Predicate.hasProperty(value, "cause") &&

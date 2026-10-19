@@ -10,6 +10,7 @@ import {
   CapacityReservation,
   PreviewRecord,
   CheckpointRecord,
+  CheckpointUnavailableError,
   error,
   LeaseLostError,
 } from "./ContainerState";
@@ -20,6 +21,7 @@ import {
   type ContainerIdentity,
   type EnsureOptions,
   NativeSandboxNamespace,
+  SandboxCheckpoint,
 } from "./NativeSandbox";
 import { PROCESS_BOOTSTRAP_SOURCE } from "./ProcessSupervisorSource";
 
@@ -195,7 +197,10 @@ const make = Effect.gen(function* () {
             yield* protect(protection.id, null);
         }),
     );
-  const ensureAttempt = Effect.fn("SandboxContainer.ensure")(function* (input: EnsureOptions) {
+  const ensureAttempt = Effect.fn("SandboxContainer.ensure")(function* (
+    input: EnsureOptions,
+    checkpointRequired = false,
+  ) {
     if (input.idleMillis !== undefined) {
       if (input.idleMillis !== 300_000 && input.idleMillis !== 1_800_000)
         return yield* ensureError("idle-policy", "Idle policy is not approved");
@@ -219,6 +224,8 @@ const make = Effect.gen(function* () {
         });
         if ((yield* read("stopping-instance", Schema.String)) === current.instanceId)
           return yield* ensureError("retirement-pending", "Container retirement is pending");
+        if (checkpointRequired && current.restoredSnapshotId !== input.checkpoint?.snapshotId)
+          return yield* error("restore", "A different workspace is already running");
         if (
           input.expectedInstanceId !== undefined &&
           input.expectedInstanceId !== current.instanceId
@@ -247,11 +254,21 @@ const make = Effect.gen(function* () {
       if (!image)
         return yield* ensureError("image-not-configured", "Requested image is not configured");
       const saved = input.checkpoint ?? null;
+      const classIdentity = (yield* namespace.idFromName(CAPACITY_NAME)).toString();
+
+      if (checkpointRequired && saved) {
+        if (saved.expiresAt <= now + 5 * 60_000)
+          return yield* new CheckpointUnavailableError({ reason: "expired" });
+        if (saved.imageDigest !== image)
+          return yield* new CheckpointUnavailableError({ reason: "image" });
+        if (saved.classIdentity !== classIdentity)
+          return yield* new CheckpointUnavailableError({ reason: "class" });
+      }
       const restore =
         saved &&
         saved.expiresAt > now + 5 * 60_000 &&
         saved.imageDigest === image &&
-        saved.classIdentity === (yield* namespace.idFromName(CAPACITY_NAME)).toString()
+        saved.classIdentity === classIdentity
           ? saved
           : null;
       const previous = yield* identity();
@@ -593,6 +610,16 @@ const make = Effect.gen(function* () {
         }),
       ),
     ensure,
+    restore: (checkpoint: SandboxCheckpoint, input: EnsureOptions = {}) =>
+      boot.withPermits(1)(
+        protectNativeIO(
+          Schema.decodeEffect(SandboxCheckpoint)(checkpoint).pipe(
+            Effect.flatMap((saved) =>
+              ensureAttempt({ ...input, checkpoint: saved, recovery: "freshAllowed" }, true),
+            ),
+          ),
+        ),
+      ),
     describe,
     touch,
     protectNativeIO,

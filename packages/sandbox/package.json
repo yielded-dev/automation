@@ -39,7 +39,8 @@
     "prepack": "vp run build",
     "test": "vp test --run",
     "test:e2e": "node test/e2e/readiness.mjs",
-    "test:e2e:git": "node test/e2e/git-history.mjs"
+    "test:e2e:git": "node test/e2e/git-history.mjs",
+    "test:e2e:checkpoints": "node test/e2e/checkpoints.mjs"
   },
   "dependencies": {
     "@cloudflare/sandbox": "1.0.0"

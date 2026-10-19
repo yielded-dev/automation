@@ -11,6 +11,7 @@ import {
   WorkspaceService,
 } from "../Contract";
 import { RepositoryAuthorizationGrant, WorkspaceCheckpoint } from "./NativeSandbox";
+import { RepositoryCheckpointInput } from "./RepositoryCheckpoint";
 import { NativeWorkspaceIdentityData } from "./NativeWorkspaceIdentity";
 import { StoredWorkspaceBaselinePreparation } from "./WorkspaceBaselinePreparationState";
 
@@ -236,6 +237,7 @@ export class SessionStateStore extends Context.Service<
     readonly materializationId: StoredKey<string>;
     readonly containerInstanceId: StoredKey<string>;
     readonly workspaceCheckpoint: StoredKey<WorkspaceCheckpoint>;
+    readonly workspaceCheckpointInput: StoredKey<RepositoryCheckpointInput>;
     readonly workspaceBaselinePreparation: StoredKey<StoredWorkspaceBaselinePreparation>;
     readonly repositorySetupReceipt: StoredKey<RepositorySetupReceipt>;
     readonly repositorySetupValidationReport: StoredKey<RepositorySetupReport>;
@@ -577,6 +579,10 @@ export class SessionStateStore extends Context.Service<
         repositoryFork: recoveryKey("repository-fork", StoredRepositoryFork),
         containerInstanceId: recoveryKey("container-instance", Schema.String),
         workspaceCheckpoint: recoveryKey("workspace-checkpoint", WorkspaceCheckpoint),
+        workspaceCheckpointInput: recoveryKey(
+          "workspace-checkpoint-input",
+          RepositoryCheckpointInput,
+        ),
         workspaceBaselinePreparation: recoveryKey(
           "workspace-baseline-preparation",
           StoredWorkspaceBaselinePreparation,

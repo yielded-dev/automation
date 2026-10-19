@@ -47,8 +47,13 @@ import {
 } from "./ArtifactsCheckout";
 import { sandboxFor } from "./Bindings";
 import { SandboxAgentConfig, sandboxAgentDeadlinePolicy, requireRepositorySeed } from "./Config";
-import { isSandboxFileMissing } from "./NativeSandbox";
+import { isSandboxFileMissing, SandboxOperationError } from "./NativeSandbox";
 import { OutboundAuthority } from "./OutboundAuthority";
+import {
+  captureRepositoryCheckpoint,
+  recoverRepositoryCheckpoint,
+  sameRepositoryCheckpointInput,
+} from "./RepositoryCheckpoint";
 import {
   prepareRepositorySetup,
   readRepositorySetup,
@@ -638,7 +643,10 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
     storedCheckpoint.expiresAt > now + WORKSPACE_SNAPSHOT_HEADROOM
       ? storedCheckpoint
       : null;
-  const ownerCheckpoint = description.checkpoint;
+  const ownerCheckpoint = recoverRepositoryCheckpoint(
+    description.checkpoint,
+    yield* store.workspaceCheckpointInput.get,
+  );
 
   if (
     validSessionCheckpoint !== null &&
@@ -1354,29 +1362,40 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
         `${WORKSPACE_PREPARATION_VERSION}:site-source:${head}`,
       );
 
-      yield* sandbox
-        .checkpoint({
-          captureId: `site-source:${identity.instanceId}:${materializationId}:${setupFingerprint}`,
-          instanceId: identity.instanceId,
-          setupFingerprint,
-          head: head!,
-          materializationId,
-          snapshotAllowed: true,
-        })
-        .pipe(
-          Effect.flatMap((checkpoint) =>
-            checkpoint === null ? Effect.void : store.workspaceCheckpoint.put(checkpoint),
-          ),
-          Effect.catchCause((cause) =>
-            cause.reasons.every(
-              (reason) =>
-                Cause.isFailReason(reason) &&
-                Predicate.isTagged(reason.error, "SandboxOperationError"),
-            )
-              ? reportSanitizedCause(cause, { operation: "MessagePipeline.siteCapture" })
-              : Effect.failCause(cause),
-          ),
-        );
+      const captureInput = {
+        instanceId: identity.instanceId,
+        setupFingerprint,
+        head: head!,
+        materializationId,
+        snapshotAllowed: true,
+      };
+      yield* Effect.gen(function* () {
+        const acceptedCapture = yield* store.workspaceCheckpointInput.get;
+
+        if (
+          acceptedCapture?.instanceId === identity.instanceId &&
+          !sameRepositoryCheckpointInput(acceptedCapture, captureInput)
+        )
+          return yield* new SandboxOperationError({
+            operation: "checkpoint",
+            cause: new Error("This boot already owns different checkpoint inputs"),
+          });
+        yield* store.workspaceCheckpointInput.put(captureInput);
+        return yield* captureRepositoryCheckpoint(captureInput);
+      }).pipe(
+        Effect.flatMap((checkpoint) =>
+          checkpoint === null ? Effect.void : store.workspaceCheckpoint.put(checkpoint),
+        ),
+        Effect.catchCause((cause) =>
+          cause.reasons.every(
+            (reason) =>
+              Cause.isFailReason(reason) &&
+              Predicate.isTagged(reason.error, "SandboxOperationError"),
+          )
+            ? reportSanitizedCause(cause, { operation: "MessagePipeline.siteCapture" })
+            : Effect.failCause(cause),
+        ),
+      );
     }
     if (recovery === null && harnessVersion === null) {
       harnessVersion = harness.version;

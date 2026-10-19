@@ -1,9 +1,11 @@
 import { Cause, Effect, Predicate } from "effect";
 
 import { reportSanitizedCause } from "../observability/RuntimeDiagnostics";
+import { SessionSandbox } from "../SessionSandbox";
 
 import { Sandboxes } from "./Bindings";
 import { resourceHash } from "./resource-names";
+import { captureRepositoryCheckpoint } from "./RepositoryCheckpoint";
 import { WorkspaceBaselineRepository } from "./WorkspaceBaselineRepository";
 
 /** Refresh a bounded batch from pristine snapshots, without a transaction across container I/O. */
@@ -47,14 +49,13 @@ export const refreshWorkspaceBaselines = Effect.gen(function* () {
 
                 return;
               }
-              const checkpoint = yield* sandbox.checkpoint({
-                captureId: `refresh:${saved.snapshotId}:${identity.instanceId}`,
+              const checkpoint = yield* captureRepositoryCheckpoint({
                 instanceId: identity.instanceId,
                 setupFingerprint: saved.setupFingerprint,
                 head: saved.head,
                 materializationId: saved.materializationId,
                 snapshotAllowed: true,
-              });
+              }).pipe(Effect.provideService(SessionSandbox, sandbox));
 
               if (checkpoint !== null)
                 yield* baselines.publish({ ...baseline, checkpoint }, saved.snapshotId);

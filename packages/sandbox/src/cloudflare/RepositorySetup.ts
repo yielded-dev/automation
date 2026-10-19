@@ -20,6 +20,7 @@ import { inMeasure } from "../tracing/RunSpanCapture";
 import { REPO_DIR } from "../workspace-paths";
 import { SandboxAgentConfig } from "./Config";
 import type { ContainerIdentity } from "./NativeSandbox";
+import { captureRepositoryCheckpoint, sameRepositoryCheckpointInput } from "./RepositoryCheckpoint";
 import { resourceHash } from "./resource-names";
 import { SessionStateStore } from "./SessionStateStore";
 import type { RepositoryInstallSource } from "./RepositoryInstallAuthorization";
@@ -688,12 +689,10 @@ export const prepareRepositorySetup = Effect.fn("RepositorySetup.prepare")(funct
             ? "inputs-changed"
             : "matched",
     });
-    const sandbox = yield* SessionSandbox;
     const snapshotInput =
       input.snapshot === undefined
         ? undefined
         : {
-            captureId: `prepared:${input.snapshot.identity.instanceId}:${materializationId}:${fingerprint}`,
             instanceId: input.snapshot.identity.instanceId,
             setupFingerprint: fingerprint,
             head: sourceHead,
@@ -704,10 +703,24 @@ export const prepareRepositorySetup = Effect.fn("RepositorySetup.prepare")(funct
       snapshotInput?.snapshotAllowed === false ? "disabled" : "not-requested";
     let publication: RepositorySetupCheckpoint["publication"] = "not-requested";
 
+    if (snapshotInput) {
+      const accepted = yield* store.workspaceCheckpointInput.get;
+
+      if (
+        accepted?.instanceId === snapshotInput.instanceId &&
+        !sameRepositoryCheckpointInput(accepted, snapshotInput)
+      )
+        return yield* failure(
+          recipePath,
+          sourceHead,
+          "This boot already owns different checkpoint inputs.",
+        );
+      yield* store.workspaceCheckpointInput.put(snapshotInput);
+    }
+
     // A recipe may write injected values anywhere, beyond the Git secret scan.
     // Disable whole-filesystem capture before the first secret-bearing command.
     if (snapshotInput && !snapshotInput.snapshotAllowed) {
-      yield* sandbox.checkpoint(snapshotInput);
       yield* store.workspaceCheckpoint.delete;
     }
 
@@ -789,9 +802,9 @@ export const prepareRepositorySetup = Effect.fn("RepositorySetup.prepare")(funct
             : undefined;
         const checkpoint =
           reusableCheckpoint ??
-          (yield* sandbox
-            .checkpoint(snapshotInput)
-            .pipe(inMeasure("workspace-checkpoint-capture")));
+          (yield* captureRepositoryCheckpoint(snapshotInput).pipe(
+            inMeasure("workspace-checkpoint-capture"),
+          ));
 
         if (checkpoint === null) return;
         capture = reusableCheckpoint === undefined ? "captured" : "reused";

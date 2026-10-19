@@ -8,7 +8,7 @@ import {
 import {
   ProcessStatus,
   RepositoryAuthorizationGrant,
-  WorkspaceCheckpoint,
+  SandboxCheckpoint,
 } from "@yielded/sandbox/cloudflare";
 
 export const NativeContainerDescription = Schema.Struct({
@@ -16,7 +16,7 @@ export const NativeContainerDescription = Schema.Struct({
   classIdentity: Schema.String,
   current: Schema.NullOr(NativeContainerIdentity),
   running: Schema.Boolean,
-  checkpoint: Schema.NullOr(WorkspaceCheckpoint),
+  checkpoint: Schema.NullOr(SandboxCheckpoint),
 });
 export const NativeForwardPrepared = Schema.Struct({
   operationId: Schema.String,

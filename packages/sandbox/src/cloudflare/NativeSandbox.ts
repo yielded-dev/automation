@@ -38,33 +38,36 @@ export const InspectionOptions = Schema.Struct({
   deadlineAt: Schema.optionalKey(Schema.Finite),
 });
 export type InspectionOptions = typeof InspectionOptions.Type;
-export const WorkspaceCheckpoint = Schema.Struct({
+/** A filesystem checkpoint. Running processes are not restored. */
+export const SandboxCheckpoint = Schema.Struct({
   kind: Schema.Literal("container"),
   snapshotId: Schema.String,
   imageDigest: Schema.String,
-  setupFingerprint: Schema.String,
-  head: Schema.String,
-  materializationId: Schema.String,
   classIdentity: Schema.String,
   instanceId: Schema.String,
   capturedAt: Schema.Finite,
   expiresAt: Schema.Finite,
 });
+export type SandboxCheckpoint = typeof SandboxCheckpoint.Type;
+export const WorkspaceCheckpoint = Schema.Struct({
+  ...SandboxCheckpoint.fields,
+  setupFingerprint: Schema.String,
+  head: Schema.String,
+  materializationId: Schema.String,
+});
 export type WorkspaceCheckpoint = typeof WorkspaceCheckpoint.Type;
-export interface PreparedWorkspace {
-  readonly captureId: string;
-  readonly instanceId: string;
-  readonly setupFingerprint: string;
-  readonly head: string;
-  readonly materializationId: string;
-  readonly snapshotAllowed: boolean;
-}
+export const CheckpointInput = Schema.Struct({
+  instanceId: Schema.String,
+  /** Increase for each save in this boot. Only the latest receipt is retained. */
+  sequence: Schema.Natural.check(Schema.isLessThanOrEqualTo(Number.MAX_SAFE_INTEGER)),
+});
+export type CheckpointInput = typeof CheckpointInput.Type;
 export interface EnsureOptions {
   readonly expectedInstanceId?: string;
   readonly size?: "standard" | "big";
   readonly instance?: ContainerStartupOptions["instance"];
   readonly imageKey?: string;
-  readonly checkpoint?: WorkspaceCheckpoint;
+  readonly checkpoint?: SandboxCheckpoint;
   readonly recovery?: "freshAllowed" | "exactWorkspaceRequired";
   readonly idleMillis?: 300_000 | 1_800_000;
 }
@@ -92,7 +95,7 @@ export interface ContainerDescription {
   readonly classIdentity: string;
   readonly current: ContainerIdentity | null;
   readonly running: boolean;
-  readonly checkpoint: WorkspaceCheckpoint | null;
+  readonly checkpoint: SandboxCheckpoint | null;
 }
 export const ProcessStatus = Schema.Struct({
   id: Schema.String,
@@ -220,7 +223,11 @@ export interface NativeSandboxRpc {
     force: boolean,
     start: EnsureOptions,
   ): Promise<NativeReply<void>>;
-  checkpoint(input: PreparedWorkspace): Promise<NativeReply<WorkspaceCheckpoint | null>>;
+  checkpoint(input: CheckpointInput): Promise<NativeReply<SandboxCheckpoint>>;
+  restore(
+    checkpoint: SandboxCheckpoint,
+    start: EnsureOptions,
+  ): Promise<NativeReply<ContainerIdentity>>;
   configureOutboundAuthority(authority: unknown): Promise<NativeReply<void>>;
   setRepositoryAuthorization(
     remote: string,
@@ -334,8 +341,12 @@ export interface NativeSandbox {
   readonly grantPreview: (input: PreviewGrant) => Effect.Effect<void, SandboxOperationError>;
   readonly revokePreview: Effect.Effect<void, SandboxOperationError>;
   readonly checkpoint: (
-    input: PreparedWorkspace,
-  ) => Effect.Effect<WorkspaceCheckpoint | null, SandboxOperationError>;
+    input: CheckpointInput,
+  ) => Effect.Effect<SandboxCheckpoint, SandboxOperationError>;
+  /** Restore this checkpoint exactly; never fall back to an empty image. */
+  readonly restore: (
+    checkpoint: SandboxCheckpoint,
+  ) => Effect.Effect<ContainerIdentity, SandboxOperationError>;
   readonly configureOutboundAuthority: (
     authority: unknown,
   ) => Effect.Effect<void, SandboxOperationError>;
@@ -673,6 +684,7 @@ export const makeNativeSandbox = Effect.fnUntraced(function* (
     grantPreview: (input) => call("grantPreview", input),
     revokePreview: call("revokePreview"),
     checkpoint: (input) => call("checkpoint", input),
+    restore: (checkpoint) => call("restore", checkpoint, defaults),
     configureOutboundAuthority: (authority) => call("configureOutboundAuthority", authority),
     setRepositoryAuthorization: (remote, credential, expiresAt, grantId) => {
       let grant: RepositoryAuthorizationGrant | undefined;
