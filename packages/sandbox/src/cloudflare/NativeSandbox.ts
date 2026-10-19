@@ -7,7 +7,11 @@ import { Cause, Clock, Context, Data, Effect, Option, Schema } from "effect";
 import { DurableObjectNamespace, type ContainerFiles } from "effect-cf";
 
 import { causeFromFailureDiagnostic, FailureDiagnostic } from "../observability/FailureDiagnostic";
-import { NATIVE_OUTPUT_LIMIT_BYTES } from "../NativeExecutionLimits";
+import {
+  NATIVE_LISTENER_PORTS,
+  NATIVE_OUTPUT_LIMIT_BYTES,
+  PROCESS_SUPERVISOR_PORT,
+} from "../NativeExecutionLimits";
 
 export type SandboxCommand = readonly [string, ...Array<string>];
 export type SandboxFileStat = ContainerFiles.FileStat;
@@ -150,9 +154,9 @@ export type NativeReply<A> =
   | { readonly _tag: "Success"; readonly value: A }
   | { readonly _tag: "Failure"; readonly diagnostic: FailureDiagnostic; readonly code?: string };
 
-/** The internal native RPC boundary. Native streams are deliberately transferred, never JSON encoded. */
+/** The host grants one application port; native control ports cannot be previewed. */
 export interface PreviewGrant {
-  readonly port: 5173;
+  readonly port: number;
   readonly token: string;
   readonly materializationId: string;
   readonly generation: number;
@@ -162,7 +166,16 @@ export interface PreviewGrant {
 }
 export const PreviewRoute = Schema.Struct({
   sandboxId: Schema.String,
-  port: Schema.Literal(5173),
+  port: Schema.Int.check(
+    Schema.isGreaterThan(0),
+    Schema.isLessThanOrEqualTo(65_535),
+    Schema.makeFilter(
+      (port) =>
+        port !== PROCESS_SUPERVISOR_PORT &&
+        NATIVE_LISTENER_PORTS.every((reserved) => port !== reserved),
+      { expected: "an application port, not a native control port" },
+    ),
+  ),
   materializationId: Schema.String,
   generation: Schema.Int,
 });

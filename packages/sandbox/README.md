@@ -79,6 +79,12 @@ Capture and restore use Cloudflare's native
 [`snapshotContainer()` and `start({ containerSnapshot })`](https://developers.cloudflare.com/containers/guides/snapshots/)
 with `durable_object` scheduling.
 
+`sandbox.forwardPort(port, request)` forwards a host request to a running workspace.
+To authorize browser access, `sandbox.grantPreview` binds the chosen port to a token,
+live process, workspace instance, materialization and expiry. Hosts authenticate users
+and route authorized requests. Native control ports cannot be previewed; use a separate
+port for a host-managed static server so project dev servers can keep their defaults.
+
 ## Repository preparation
 
 Supply `RepositoryPreparationSources` to authorize and select the repository's
