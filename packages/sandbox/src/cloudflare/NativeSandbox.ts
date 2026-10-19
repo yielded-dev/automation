@@ -7,12 +7,7 @@ import { Cause, Clock, Context, Data, Effect, Option, Schema } from "effect";
 import { DurableObjectNamespace, type ContainerFiles } from "effect-cf";
 
 import { causeFromFailureDiagnostic, FailureDiagnostic } from "../observability/FailureDiagnostic";
-import {
-  CODEX_NATIVE_PORT,
-  NATIVE_LISTENER_PORTS,
-  NATIVE_OUTPUT_LIMIT_BYTES,
-  PROCESS_SUPERVISOR_PORT,
-} from "../NativeExecutionLimits";
+import { NATIVE_OUTPUT_LIMIT_BYTES } from "../NativeExecutionLimits";
 
 export type SandboxCommand = readonly [string, ...Array<string>];
 export type SandboxFileStat = ContainerFiles.FileStat;
@@ -165,19 +160,10 @@ export interface PreviewGrant {
   readonly processId: string;
   readonly expiresAt?: number;
 }
+/** Stored route shape; port policy is enforced when granting or serving access. */
 export const PreviewRoute = Schema.Struct({
   sandboxId: Schema.String,
-  port: Schema.Int.check(
-    Schema.isGreaterThan(0),
-    Schema.isLessThanOrEqualTo(65_535),
-    Schema.makeFilter(
-      (port) =>
-        port !== CODEX_NATIVE_PORT &&
-        port !== PROCESS_SUPERVISOR_PORT &&
-        NATIVE_LISTENER_PORTS.every((reserved) => port !== reserved),
-      { expected: "an application port, not a native control port" },
-    ),
-  ),
+  port: Schema.Int.check(Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(65_535)),
   materializationId: Schema.String,
   generation: Schema.Int,
 });
