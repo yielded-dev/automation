@@ -1,4 +1,5 @@
 export * from "./domain/errors";
+export * from "./domain/Deduplication";
 export * from "./domain/Investigator";
 export * from "./domain/launch";
 export * from "./domain/proof";
