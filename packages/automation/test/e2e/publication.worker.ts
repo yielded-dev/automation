@@ -54,6 +54,7 @@ const Input = Schema.Struct({
     "cancel-mixed",
     "create-response-lost",
     "create-draft-mismatch",
+    "stale-content",
   ]),
 });
 const CreatePullRequest = Schema.fromJsonString(
@@ -64,6 +65,9 @@ const CreatePullRequest = Schema.fromJsonString(
     draft: Schema.Boolean,
     body: Schema.String,
   }),
+);
+const UpdatePullRequest = Schema.fromJsonString(
+  Schema.Struct({ title: Schema.String, body: Schema.String }),
 );
 const content = { kind: "repair" as const, title: "Synthetic repair", body: "Synthetic evidence" };
 const describe = (cause: Cause.Cause<unknown>) =>
@@ -96,7 +100,7 @@ export default {
       `repair/${input.launch.origin.incidentId}-${input.launch.launch.continuation?.publication?.attemptId ?? input.launch.origin.attemptId}`;
     const fixturePullRequest = {
       number: 1,
-      title: content.title,
+      title: input.fault === "stale-content" ? "Previous repair title" : content.title,
       body: content.body,
       html_url: "https://github.com/fixture/project/pull/1",
       state: "open",
@@ -224,6 +228,16 @@ export default {
                   ? new Response(null, { status: 502 })
                   : Response.json(pullRequest),
               );
+            }
+            if (request.method === "PATCH" && url.pathname.endsWith("/pulls/1")) {
+              if (request.body._tag !== "Uint8Array" || pullRequest === undefined)
+                return yield* Effect.die("Expected JSON update of the existing PR");
+              const body = yield* Schema.decodeEffect(UpdatePullRequest, {
+                onExcessProperty: "error",
+              })(new TextDecoder().decode(request.body.body)).pipe(Effect.orDie);
+              sent.body = body;
+              pullRequest = { ...pullRequest, ...body };
+              return HttpClientResponse.fromWeb(request, Response.json(pullRequest));
             }
             if (request.method !== "GET") return yield* Effect.die("Unexpected GitHub mutation");
             if (url.pathname.endsWith(`/git/ref/heads/${branch}`) && input.remoteHead === null)
@@ -355,6 +369,8 @@ export default {
       reports,
       requests,
       cancellations,
+      pullRequest:
+        pullRequest === undefined ? null : { number: pullRequest.number, draft: pullRequest.draft },
     });
   },
 };

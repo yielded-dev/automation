@@ -3,8 +3,10 @@ import { expect, it } from "vite-plus/test";
 import {
   RepairReport,
   RepairReportJson,
+  RepairVerification,
   repairReportOutputSchema,
 } from "../../src/domain/RepairReport";
+import { RepairPublicationRequest } from "../../src/domain/proof";
 
 // Independent of Effect's transformer: validate every schema node, including definitions.
 // https://developers.openai.com/api/docs/guides/structured-outputs#supported-schemas
@@ -98,6 +100,15 @@ it("emits an entire Codex output schema within OpenAI's supported subset", () =>
   };
   expect(root.type).toBe("object");
   expect(root.anyOf).toBeUndefined();
+  expect(root.required).toContain("verification");
+  expect(root).toHaveProperty("properties.verification.anyOf.0.required", [
+    "status",
+    "evidenceHash",
+    "runtime",
+    "before",
+    "after",
+  ]);
+  expect(root).toHaveProperty("properties.verification.anyOf.1.type", "null");
   const flow = "properties.summary.anyOf.0.properties.behaviorChange.anyOf.0.properties";
   expect(root).not.toHaveProperty(`${flow}.nodes.prefixItems`);
   expect(root).not.toHaveProperty(`${flow}.edges.prefixItems`);
@@ -133,6 +144,7 @@ const report = {
 };
 const decode = (input: unknown) =>
   Schema.decodeUnknownSync(RepairReportJson)(JSON.stringify(input));
+const PublicationJson = Schema.fromJsonString(RepairPublicationRequest);
 
 it("keeps ordinary report arrays and legacy optional fields decodable", () => {
   expect(decode(report)).toEqual(report);
@@ -142,6 +154,61 @@ it("keeps ordinary report arrays and legacy optional fields decodable", () => {
     summary: { ...summary, keyChange: { path: "src/report.ts", diff: "x" } },
   };
   expect(decode(legacy)).toEqual(legacy);
+  expect(decode({ ...legacy, verification: null })).toEqual({ ...legacy, verification: null });
+  const publication = { candidateSha: legacy.candidateSha, summary: legacy.summary };
+  expect(Schema.decodeUnknownSync(PublicationJson)(JSON.stringify(publication))).toEqual(
+    publication,
+  );
+});
+
+const verification: RepairVerification = {
+  status: "fixed",
+  evidenceHash: "c".repeat(64),
+  runtime: "workerd",
+  before: {
+    revision: "b".repeat(40),
+    command: "vp run test:duplicate-delivery",
+    observed: "Repeated delivery created two records.",
+  },
+  after: {
+    revision: report.candidateSha,
+    command: "vp run test:duplicate-delivery",
+    observed: "Repeated delivery created one record.",
+  },
+};
+
+it.each([
+  ["fixed", verification],
+  ["unresolved", { ...verification, status: "unresolved", runtime: "cloudflare", after: null }],
+  ["unobserved", { ...verification, status: "unresolved", before: null, after: null }],
+  [
+    "multiline",
+    {
+      ...verification,
+      after: {
+        ...verification.after,
+        command: "vp run test:duplicate-delivery \\\n  --runtime workerd",
+        observed: "First delivery created one record.\nRepeated delivery reused that record.",
+      },
+    },
+  ],
+  ["null", null],
+])("round-trips %s verification through report and publication JSON", (_, value) => {
+  const input = { ...report, verification: value };
+  const decoded = decode(input);
+  expect(decoded).toEqual(input);
+  expect(decode(JSON.parse(Schema.encodeSync(RepairReportJson)(decoded)))).toEqual(input);
+
+  const publication = {
+    candidateSha: decoded.candidateSha,
+    summary: decoded.summary,
+    verification: decoded.verification,
+  };
+  const accepted = Schema.decodeUnknownSync(RepairPublicationRequest)(publication);
+  expect(accepted).toEqual(publication);
+  expect(
+    Schema.decodeUnknownSync(PublicationJson)(Schema.encodeSync(PublicationJson)(accepted)),
+  ).toEqual(publication);
 });
 
 it("retains host-only report constraints after provider schema conversion", () => {
@@ -167,4 +234,26 @@ it("retains host-only report constraints after provider schema conversion", () =
     { ...report.summary, visualEvidence: { captures: [], blocker: null } },
   ])
     expect(() => decode({ ...report, summary })).toThrow();
+
+  for (const invalid of [
+    { ...verification, status: "passed" },
+    { ...verification, evidenceHash: "c".repeat(63) },
+    { ...verification, evidenceHash: `${"c".repeat(64)}\n` },
+    { ...verification, evidenceHash: "z".repeat(64) },
+    ...["", " workerd", "workerd ", "x".repeat(65)].map((runtime) => ({
+      ...verification,
+      runtime,
+    })),
+    { ...verification, before: { ...verification.before, revision: "b".repeat(39) } },
+    { ...verification, before: { ...verification.before, revision: `${"b".repeat(40)}\n` } },
+    { ...verification, after: { ...verification.after, command: "" } },
+    { ...verification, after: { ...verification.after, command: " \t\n " } },
+    { ...verification, after: { ...verification.after, command: "x".repeat(2_001) } },
+    { ...verification, after: { ...verification.after, observed: "" } },
+    { ...verification, after: { ...verification.after, observed: " \t\n " } },
+    { ...verification, after: { ...verification.after, observed: "x".repeat(4_001) } },
+  ]) {
+    expect(() => decode({ ...report, verification: invalid })).toThrow();
+    expect(Schema.is(RepairVerification)(invalid)).toBe(false);
+  }
 });

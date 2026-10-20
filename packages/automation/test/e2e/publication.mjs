@@ -67,7 +67,7 @@ try {
       },
     }),
   );
-  const create = (retained = false, retired = false, newPullRequest = false) => {
+  const create = (retained = false, retired = false, kind = "rebase") => {
     const attemptId = randomUUID();
     const launch = {
       runId: uuidV5(JSON.stringify(["kommunikasie-repair", "run", attemptId]), uuidV5.URL),
@@ -92,9 +92,21 @@ try {
         evidenceHash: "d".repeat(64),
         allowedScopes: ["host_publication"],
         promptPolicy: "fixture",
-        ...(newPullRequest
-          ? {}
-          : { rebase: { branch: "repair/fixture", headSha: expected, pullRequestNumber: 1 } }),
+        ...(kind === "rebase"
+          ? { rebase: { branch: "repair/fixture", headSha: expected, pullRequestNumber: 1 } }
+          : kind === "continuation"
+            ? {
+                continuation: {
+                  runId: randomUUID(),
+                  candidateSha: expected,
+                  publication: {
+                    attemptId: randomUUID(),
+                    candidateSha: expected,
+                    pullRequestNumber: 1,
+                  },
+                },
+              }
+            : {}),
       },
     };
     const state = {
@@ -166,7 +178,7 @@ try {
   };
   for (const draft of [undefined, false, true]) {
     await record(`publication-draft-${draft ?? "default"}`, async (item) => {
-      const launch = create(false, false, true);
+      const launch = create(false, false, "initial");
       // Stop at the unavailable native port, after the first intent has been accepted.
       item.accepted = await request(launch, "publish", "none", null, candidate, {
         draft,
@@ -228,7 +240,7 @@ try {
     });
   }
   await record("draft-does-not-convert-existing-pr", async (item) => {
-    const launch = create();
+    const launch = create(false, false, "initial");
     item.direct = await request(launch, "direct", "none", expected, candidate, { draft: true });
     item.client = await request(launch, "publish", "none", expected, candidate, { draft: true });
     assert.deepEqual(item.direct.reasons, [{ kind: "Fail", tag: "PublicationError" }]);
@@ -238,7 +250,7 @@ try {
   });
   for (const pullRequest of ["draft", "ready"]) {
     await record(`draft-reconciliation-${pullRequest}`, async (item) => {
-      const launch = create(true, true);
+      const launch = create(true, true, "initial");
       const acceptedIntent = JSON.stringify({
         sourceHead: candidate,
         previousHead: expected,
@@ -266,7 +278,7 @@ try {
     });
   }
   await record("draft-create-requires-matching-response", async (item) => {
-    const launch = create(false, false, true);
+    const launch = create(false, false, "initial");
     const acceptedIntent = JSON.stringify({
       sourceHead: candidate,
       previousHead: null,
@@ -283,6 +295,54 @@ try {
     assert.equal(item.result.requests.filter((request) => request.method === "POST").length, 1);
     assert.ok(item.result.requests.every((request) => request.method !== "PATCH"));
   });
+  for (const kind of ["continuation", "rebase"]) {
+    for (const pullRequest of ["draft", "ready"]) {
+      await record(`${kind}-preserves-existing-${pullRequest}`, async (item) => {
+        const launch = create(false, false, kind);
+        const draft = pullRequest === "ready";
+        item.accepted = await request(launch, "publish", "none", expected, candidate, {
+          draft,
+          pullRequest,
+        });
+        assert.deepEqual(item.accepted.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+        const acceptedIntent = JSON.stringify({
+          sourceHead: candidate,
+          previousHead: expected,
+          content,
+          draft,
+        });
+        assert.equal(pending(launch), `${acceptedIntent}|`);
+        assert.ok(item.accepted.requests.every((request) => request.method === "GET"));
+        // Recover the completed push and refresh content without converting the existing PR.
+        item.published = await request(launch, "publish", "stale-content", candidate, candidate, {
+          draft: !draft,
+          pullRequest,
+        });
+        assert.equal(item.published.exit, "Success", JSON.stringify(item.published));
+        assert.equal(item.published.value.number, 1);
+        assert.equal(item.published.value.sourceHead, candidate);
+        assert.deepEqual(item.published.pullRequest, { number: 1, draft: !draft });
+        assert.deepEqual(
+          item.published.requests.filter((request) => request.method !== "GET"),
+          [
+            {
+              method: "PATCH",
+              path: "/repos/fixture/project/pulls/1",
+              body: { title: content.title, body: content.body },
+            },
+          ],
+        );
+        assert.equal(
+          pg.sql(`SELECT intent FROM repair_publication WHERE run_id=${quote(launch.runId)}`),
+          acceptedIntent,
+        );
+        assert.equal(
+          item.published.value.contentHash,
+          createHash("sha256").update(acceptedIntent).digest("hex"),
+        );
+      });
+    }
+  }
   await record("pre-intent-head-conflict", async (item) => {
     const launch = create();
     item.direct = await request(launch, "direct");
