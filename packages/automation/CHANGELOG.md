@@ -1,5 +1,16 @@
 # @yielded/automation
 
+## 0.4.0
+
+### Minor Changes
+
+- [#19](https://github.com/yielded-dev/automation/pull/19) [`e1a77c5`](https://github.com/yielded-dev/automation/commit/e1a77c5266bf686a161f4873b262fce46a2ac7c2) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Add optional `RepairVerification` to reports and publication requests for host policy, requiring explicit null or data in new provider output while preserving legacy decoding. Preserve the live draft status of explicitly continued or rebased pull requests regardless of the preference for new PRs.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @yielded/sandbox@0.4.0
+
 ## 0.3.2
 
 ### Patch Changes
