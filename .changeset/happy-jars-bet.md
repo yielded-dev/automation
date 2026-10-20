@@ -2,4 +2,4 @@
 "@yielded/automation": minor
 ---
 
-Add `RepairVerification` to carry agent-reported incident outcomes, accepted evidence hashes, runtimes, and observations tied to tested commits into host publication policy. Keep verification optional and nullable in saved reports and publication requests for compatibility, while requiring an explicit null or object in new provider output.
+Add optional `RepairVerification` to reports and publication requests for host policy, requiring explicit null or data in new provider output while preserving legacy decoding. Preserve the live draft status of explicitly continued or rebased pull requests regardless of the preference for new PRs.

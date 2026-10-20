@@ -237,13 +237,15 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
     const expectedPullRequest =
       continuation?.pullRequestNumber ?? state.launch.rebase?.pullRequestNumber;
 
+    // Explicit follow-ups preserve the PR's live draft state. The draft preference
+    // remains binding for initial publication and recovery of its accepted intent.
     if (expectedPullRequest !== undefined && pullRequest?.number !== expectedPullRequest)
       return yield* ConflictError.make({ message: "The original repair PR no longer matches" });
 
     if (
       pullRequest !== undefined &&
       (pullRequest.user.login !== bot.name ||
-        pullRequest.draft !== (draft ?? false) ||
+        (expectedPullRequest === undefined && pullRequest.draft !== (draft ?? false)) ||
         pullRequest.head.repo.id !== repositoryId ||
         pullRequest.base.repo.id !== repositoryId ||
         pullRequest.base.ref !== source.repositoryRef)
@@ -496,7 +498,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
       if (
         pullRequest.user.login !== bot.name ||
         pullRequest.state !== "open" ||
-        pullRequest.draft !== (draft ?? false) ||
+        (expectedPullRequest === undefined && pullRequest.draft !== (draft ?? false)) ||
         pullRequest.head.sha !== sourceHead ||
         pullRequest.head.repo.id !== repositoryId ||
         pullRequest.base.repo.id !== repositoryId ||
@@ -532,7 +534,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
     if (
       pullRequest === undefined ||
       (!reconcileOnly && pullRequest.state !== "open") ||
-      pullRequest.draft !== (draft ?? false) ||
+      (expectedPullRequest === undefined && pullRequest.draft !== (draft ?? false)) ||
       pullRequest.head.sha !== sourceHead ||
       pullRequest.head.repo.id !== repositoryId ||
       pullRequest.base.repo.id !== repositoryId ||
