@@ -109,10 +109,64 @@ export const RepairSummary = Schema.Struct({
 });
 export type RepairSummary = typeof RepairSummary.Type;
 
+const RepairScenarioObservation = Schema.Struct({
+  revision: Schema.String.check(
+    Schema.isPattern(/^[a-f0-9]{40}$/u),
+    Schema.isMaxLength(40),
+  ).annotate({
+    description: "Exact commit actually tested for the accepted-incident scenario.",
+  }),
+  command: Schema.NonEmptyString.check(Schema.isMaxLength(2_000), Schema.isPattern(/\S/u)).annotate(
+    {
+      description:
+        "Command actually run to exercise the accepted-incident scenario in the reported runtime, not an unrelated check. No credentials.",
+    },
+  ),
+  observed: Schema.NonEmptyString.check(
+    Schema.isMaxLength(4_000),
+    Schema.isPattern(/\S/u),
+  ).annotate({
+    description:
+      "Actual observed outcome of the accepted-incident scenario, not an expected result or unrelated check summary. No credentials or raw user content.",
+  }),
+});
+
+/** Agent-reported incident evidence, not independently executed proof. Hosts own publication policy. */
+export const RepairVerification = Schema.Struct({
+  status: Schema.Literals(["fixed", "unresolved"]).annotate({
+    description:
+      "Reported outcome for the accepted incident. Use unresolved when the incident remains or its fix could not be verified; unrelated passing checks do not establish fixed.",
+  }),
+  evidenceHash: Schema.String.check(
+    Schema.isPattern(/^[a-f0-9]{64}$/u),
+    Schema.isMaxLength(64),
+  ).annotate({
+    description:
+      "Exact SHA-256 hash of the accepted incident evidence supplied by the host; never substitute a hash of new observations or check output.",
+  }),
+  runtime: line(64).annotate({
+    description:
+      "Host runtime identifier for the accepted-incident scenario, such as workerd or cloudflare. Both observations must come from this runtime; unrelated runtime checks do not qualify.",
+  }),
+  before: Schema.NullOr(RepairScenarioObservation).annotate({
+    description:
+      "Actual observation of the accepted-incident scenario before the repair, in the reported runtime. Null if it was not observed there.",
+  }),
+  after: Schema.NullOr(RepairScenarioObservation).annotate({
+    description:
+      "Actual observation of the same accepted-incident scenario after the repair, in the same reported runtime. Null if it was not observed there.",
+  }),
+}).annotate({
+  description:
+    "Private, agent-reported incident verification, not independently executed proof. The host evaluates evidence identity, runtime, tested commits and outcomes under its publication policy.",
+});
+export type RepairVerification = typeof RepairVerification.Type;
+
 /** A final handoff is bound to the saved checkout; detailed notes stay in private tool storage. */
 export const RepairReport = Schema.Struct({
   candidateSha: Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/)),
   summary: Schema.NullOr(RepairSummary),
+  verification: Schema.optionalKey(Schema.NullOr(RepairVerification)),
   notes: Schema.NonEmptyString.check(Schema.isMaxLength(24_000)).annotate({
     description:
       "Private Markdown handoff. For a feature: delivered scope, implementation decisions, acceptance checks and remaining work. For a bug: diagnosis, reproduction, fix and verification. Include inspected files and actual check outcomes. Distinguish observations from hypotheses. No credentials or raw user content.",
@@ -135,11 +189,12 @@ export const RepairReport = Schema.Struct({
 });
 export type RepairReport = typeof RepairReport.Type;
 export const RepairReportJson = Schema.fromJsonString(RepairReport);
-// Retained reports may predate captures; every newly generated report must decide
-// whether the change is visual. This does not invalidate earlier run receipts.
+// Retained reports may predate captures or incident verification. New outputs must
+// explicitly supply null or structured data without invalidating earlier receipts.
 const reportSchema = toCodecOpenAI(
   Schema.Struct({
     ...RepairReport.fields,
+    verification: Schema.NullOr(RepairVerification),
     summary: Schema.NullOr(
       Schema.Struct({
         ...RepairSummary.fields,

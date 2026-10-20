@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { RepairSummary } from "./RepairReport";
+import { RepairSummary, RepairVerification } from "./RepairReport";
 import { GithubPullRequestObservation } from "./GithubPullRequestObservation";
 const RepositoryCommitSha = Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/));
 
@@ -31,6 +31,8 @@ export type RepairOrigin = typeof RepairOrigin.Type;
 export const RepairPublicationRequest = Schema.Struct({
   candidateSha: RepositoryCommitSha,
   summary: RepairSummary,
+  /** Private reported evidence for the host's publicationContent policy, not independent proof. */
+  verification: Schema.optionalKey(Schema.NullOr(RepairVerification)),
   /** Defaults to false. The first accepted publication pins this choice for retries. */
   draft: Schema.optionalKey(Schema.Boolean),
 });
