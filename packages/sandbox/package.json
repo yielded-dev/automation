@@ -1,6 +1,6 @@
 {
   "name": "@yielded/sandbox",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Durable agent workspaces with repositories, tools, checkpoints and Cloudflare execution.",
   "license": "MIT",
   "repository": {
