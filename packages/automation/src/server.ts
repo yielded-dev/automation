@@ -1,4 +1,5 @@
 export { RunClient } from "./server/RunClient";
+export { deduplicate, DeduplicationPolicy, DeduplicationStore } from "./server/Deduplication";
 export {
   makeInvestigator,
   InvestigationStore,
