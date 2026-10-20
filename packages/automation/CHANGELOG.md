@@ -1,5 +1,16 @@
 # @yielded/automation
 
+## 0.5.0
+
+### Minor Changes
+
+- [#21](https://github.com/yielded-dev/automation/pull/21) [`18ed311`](https://github.com/yielded-dev/automation/commit/18ed31115b93a6083e9f5dbc30b74a8c91d4183c) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Deduplicate incoming work by source identity before consulting an optional consumer semantic policy. Retain decisions through host storage so retries reuse accepted work and stale comparisons cannot admit concurrent duplicates.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @yielded/sandbox@0.5.0
+
 ## 0.4.0
 
 ### Minor Changes
