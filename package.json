@@ -54,7 +54,8 @@
     "check": "vp fmt --check && vp lint && vp run typecheck && vp run build && vp run test",
     "check:packages": "node scripts/check-packages.mjs",
     "build": "vp run -r build",
-    "test": "vp run -r test",
+    "test": "vp run -r test && vp run test:postgres",
+    "test:postgres": "vp test run test/integration/Deduplication.test.ts",
     "test:integration": "node test/integration/launch.mjs",
     "prepare": "vp -C packages/automation run build"
   },

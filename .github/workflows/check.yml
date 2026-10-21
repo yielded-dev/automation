@@ -21,6 +21,8 @@ jobs:
           node-version: "24.21.0"
           run-install: false
       - run: vp install --frozen-lockfile
+      - name: Add PostgreSQL tools
+        run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
       - run: vp run check
       - name: Verify generated migrations
         run: |

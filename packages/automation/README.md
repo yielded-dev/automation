@@ -23,6 +23,81 @@ Coding services under `/server` and `/cloudflare` additionally require
 `@yielded/sandbox` and `effect-cf`, declared as optional peers. Import individual
 server modules when using an operation independently of coding execution.
 
+## Source pipelines
+
+Define provider interpretation once, then bind sources to a workflow. Sources
+provide stable issue keys and optional semantic comparison. Automation stores
+canonical decisions and aliases in PostgreSQL, checks exact identity before
+calling a hook, validates its choice, and retries stale comparisons internally.
+
+```ts
+import { Automation, Source, Sources, SemanticPolicy } from "@yielded/automation";
+import { Context, Effect, Schema } from "effect";
+
+class Remediation extends Context.Service<
+  Remediation,
+  {
+    readonly run: (issue: Automation.CanonicalIssue) => Effect.Effect<void>;
+  }
+>()("example/Remediation") {}
+
+const sameDefect = SemanticPolicy.llm({
+  instructions: "Merge only when the supplied evidence establishes the same defect.",
+});
+
+const internalErrors = Source.make({
+  _tag: "InternalErrors",
+  schema: Schema.Struct({ id: Schema.String, message: Schema.String }),
+  issue: (event) => ({ key: event.id, title: event.message, evidence: event }),
+  dedupeIssue: sameDefect,
+});
+
+const repairs = Automation.make({
+  name: "repairs",
+  scope: "organization/repository",
+  sources: [
+    Sources.cloudflareIssues({ dedupeIssue: sameDefect }),
+    Sources.sentry({ providerInstance: "https://sentry.io", dedupeIssue: sameDefect }),
+    internalErrors,
+  ],
+  workflow: (issue) => Effect.flatMap(Remediation, (workflow) => workflow.run(issue)),
+});
+
+const delivery = repairs.run({
+  id: "stable-delivery-id",
+  source: "InternalErrors",
+  input: { id: "underlying-issue-id", message: "A verified application failure" },
+});
+```
+
+Provide `Automation.layerPostgres` with the invocation's scoped `SqlClient`,
+a `LanguageModel` Layer for the optional LLM hook, and the workflow's own service
+Layers. No bindings or credentials are parameters to `run`. Import
+`automationDeduplicationInputs` and `automationDeduplicationScopes` from
+`@yielded/automation/postgres` into the host migration system before processing.
+
+The scope is a trusted tenant/repository boundary; hooks see only canonical
+issues in that pipeline and scope. Exact identity includes the source tag and
+provider key and searches all retained aliases. Semantic comparison uses the
+20 newest canonical issues. Each source projects at most 32 KiB of relevant
+JSON evidence. A hook returns one supplied candidate ID or `null`; errors fail
+without recording a decision or starting work.
+
+`run` returns `Completed` with the workflow result, or `Duplicate` with
+`decision.canonicalId`. A retained distinct input re-enters the workflow with the
+same ID, allowing its existing durable checkpoints to resume. Workflows must
+retain their execution/side-effect identities; deduplication is not an execution
+journal or an exactly-once guarantee for arbitrary Effects. `resolve` performs
+only the decision gate and `lookup` reads a retained decision without running
+the hook or workflow.
+
+`Sources.cloudflareIssues` accepts an authenticated, authorized native capture,
+not a raw alert. It keys account/service/Issue ID and compares the selected
+occurrence. `Sources.sentry` accepts authenticated `issue.created` bodies and
+keys provider instance/project/issue. Notification IDs, occurrence IDs, and
+Sentry installation IDs do not replace the underlying issue identity. The host
+still owns authentication, authority, queue delivery, and provider reads.
+
 ## Host-authorized intake
 
 ```ts
