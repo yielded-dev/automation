@@ -3,18 +3,18 @@ import { Schema } from "effect";
 const Identifier = Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMaxLength(512));
 const Reason = Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMaxLength(2_000));
 
-/** The host scopes source identities and supplies bounded, authorized comparison context. */
+/** Internal durable decision input, normalized and namespaced by Automation.make. */
 export const DeduplicationInput = Schema.Struct({
   id: Identifier,
-  scope: Identifier,
-  sourceId: Identifier,
+  scope: Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMaxLength(4096)),
+  sourceId: Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMaxLength(4096)),
   context: Schema.JsonObject,
 });
 export type DeduplicationInput = typeof DeduplicationInput.Type;
 
 export const DeduplicationCandidate = Schema.Struct({
   id: Identifier,
-  sourceId: Identifier,
+  sourceId: Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMaxLength(4096)),
   context: Schema.JsonObject,
 });
 export type DeduplicationCandidate = typeof DeduplicationCandidate.Type;

@@ -2,9 +2,11 @@
  * match the default Automation schema; importing this module does not connect
  * to a database or apply migrations.
  */
+import { sql } from "drizzle-orm";
 import {
   bigint,
   foreignKey,
+  index,
   integer,
   pgTable,
   primaryKey,
@@ -95,3 +97,31 @@ export const repairSourceExecutions = pgTable("repair_source_executions", {
   admission: text("admission").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull(),
 });
+
+export const automationDeduplicationScopes = pgTable("automation_deduplication_scopes", {
+  scope: text("scope").primaryKey(),
+  revision: integer("revision").default(0).notNull(),
+});
+
+export const automationDeduplicationInputs = pgTable(
+  "automation_deduplication_inputs",
+  {
+    scope: text("scope").notNull(),
+    id: text("id").notNull(),
+    sourceId: text("source_id").notNull(),
+    context: text("context").notNull(),
+    decision: text("decision").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.scope, table.id] }),
+    foreignKey({
+      columns: [table.scope],
+      foreignColumns: [automationDeduplicationScopes.scope],
+    }),
+    index("automation_deduplication_inputs_source_idx").on(table.scope, table.sourceId),
+    index("automation_deduplication_inputs_recent_idx")
+      .on(table.scope, table.createdAt.desc(), table.id)
+      .where(sql`${table.decision}::jsonb->>'_tag' = 'Distinct'`),
+  ],
+);

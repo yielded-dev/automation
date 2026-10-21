@@ -1,4 +1,6 @@
 export {
+  automationDeduplicationInputs,
+  automationDeduplicationScopes,
   repairExecutions,
   repairExecutionReceipts,
   repairPublication,

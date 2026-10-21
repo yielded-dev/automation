@@ -93,6 +93,8 @@ jobs:
           run-install: false
       - run: vp install --frozen-lockfile
       # Keep these gates aligned with check.yml; check builds generated dist.
+      - name: Add PostgreSQL tools
+        run: echo "$(pg_config --bindir)" >> "$GITHUB_PATH"
       - run: vp run check
       - name: Verify generated migrations
         run: |
