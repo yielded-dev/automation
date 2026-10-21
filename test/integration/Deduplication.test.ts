@@ -19,6 +19,7 @@ import { afterAll, beforeAll, expect, expectTypeOf, it } from "vite-plus/test";
 import * as Automation from "../../packages/automation/src/Automation";
 import * as SemanticPolicy from "../../packages/automation/src/SemanticPolicy";
 import * as Source from "../../packages/automation/src/Source";
+import * as Sources from "../../packages/automation/src/Sources";
 import {
   DeduplicationError,
   type DeduplicationDecision,
@@ -140,7 +141,16 @@ it("keeps decoding, policy and workflow requirements separate for mixed sources"
   const mixed = Automation.make({
     name: "mixed",
     scope: randomUUID(),
-    sources: [plain, modeled, contextual],
+    sources: [
+      plain,
+      modeled,
+      contextual,
+      Sources.cloudflareIssues(),
+      Sources.sentry({
+        providerInstance: "https://sentry.io",
+        dedupeIssue: SemanticPolicy.llm({ instructions: "Require the same cause." }),
+      }),
+    ],
     workflow: () => Effect.as(Workflow, undefined),
   });
   const request = { id: "lookup", source: "contextual" as const, input: event("lookup").input };
@@ -167,11 +177,34 @@ it("keeps decoding, policy and workflow requirements separate for mixed sources"
   const withoutModel = Automation.make({
     name: "without-model",
     scope: randomUUID(),
-    sources: [plain, contextual],
+    sources: [
+      Source.make({ _tag: "inline", schema: Source.Issue, issue: (issue) => issue }),
+      Sources.sentry({ providerInstance: "https://sentry.io" }),
+      contextual,
+    ],
     workflow: () => Effect.void,
   });
   expectTypeOf<Effect.Services<ReturnType<typeof withoutModel.run>>>().toEqualTypeOf<
     DeduplicationRepository | Decoder
+  >();
+
+  const noPolicy = Automation.make({
+    name: "runtime-issues",
+    scope: "owner/repository",
+    sources: [Sources.cloudflareIssues()],
+    workflow: () => Effect.void,
+  });
+  expectTypeOf<
+    Effect.Services<ReturnType<typeof noPolicy.resolve>>
+  >().toEqualTypeOf<DeduplicationRepository>();
+  expectTypeOf<
+    Effect.Services<ReturnType<typeof noPolicy.lookup>>
+  >().toEqualTypeOf<DeduplicationRepository>();
+  expectTypeOf<Effect.Error<ReturnType<typeof noPolicy.resolve>>>().toEqualTypeOf<
+    DeduplicationError | Schema.SchemaError
+  >();
+  expectTypeOf<Effect.Error<ReturnType<typeof noPolicy.lookup>>>().toEqualTypeOf<
+    DeduplicationError | Schema.SchemaError
   >();
 });
 

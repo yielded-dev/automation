@@ -46,7 +46,7 @@ export const make = <
   readonly schema: Input;
   readonly issue: (input: Input["Type"]) => Issue;
   readonly dedupeIssue?: (input: Comparison) => Effect.Effect<string | null, E, R>;
-}): Source<Tag, E, R, Input["DecodingServices"]> => ({
+}): Source<Tag, NoInfer<E>, NoInfer<R>, Input["DecodingServices"]> => ({
   _tag: options._tag,
   issue: Effect.fnUntraced(function* (input: unknown) {
     const event = yield* Schema.decodeUnknownEffect(options.schema)(input);

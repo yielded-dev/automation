@@ -52,7 +52,9 @@ interface Options<E, R> {
  * Issues API, authorizes the capture, and sanitizes its evidence before calling
  * this source. Decoding establishes shape, not authenticity or repair authority.
  */
-export const cloudflareIssues = <E = never, R = never>(options: Options<E, R> = {}) =>
+export const cloudflareIssues = <E = never, R = never>(
+  options: Options<E, R> = {},
+): Source.Source<"CloudflareIssues", NoInfer<E>, NoInfer<R>> =>
   Source.make({
     _tag: "CloudflareIssues",
     schema: CloudflareIssueCapture,
@@ -111,7 +113,7 @@ const ProviderInstance = Schema.Trimmed.check(Schema.isMinLength(1), Schema.isMa
  */
 export const sentry = <E = never, R = never>(
   options: Options<E, R> & { readonly providerInstance: string },
-) =>
+): Source.Source<"Sentry", NoInfer<E>, NoInfer<R>> =>
   Source.make({
     _tag: "Sentry",
     schema: SentryIssueCreated.check(
