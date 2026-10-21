@@ -1,5 +1,16 @@
 # @yielded/automation
 
+## 0.6.0
+
+### Minor Changes
+
+- [#23](https://github.com/yielded-dev/automation/pull/23) [`9e66287`](https://github.com/yielded-dev/automation/commit/9e66287dbaae12f8c886206885907aabba18a464) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Compose typed source pipelines with built-in Cloudflare and Sentry sources, optional semantic hooks, and PostgreSQL-owned identity deduplication. Replace host-implemented deduplication stores with scoped services and Layers that retain canonical decisions across retries.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @yielded/sandbox@0.6.0
+
 ## 0.5.0
 
 ### Minor Changes
