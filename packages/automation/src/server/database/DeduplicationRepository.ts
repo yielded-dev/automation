@@ -110,6 +110,8 @@ const make = Effect.gen(function* () {
 
     // The lock is acquired in the preceding statement, so this snapshot includes
     // any decision committed while we were waiting for it.
+    // Decode the proposed target from JSON only if selected: an unused proposal
+    // containing NUL must not fail PostgreSQL text binding before identity reuse.
     const rows = yield* sql`
       WITH known AS MATERIALIZED (SELECT
         (SELECT jsonb_build_object('id', id, 'sourceId', source_id,
@@ -118,12 +120,13 @@ const make = Effect.gen(function* () {
         (SELECT jsonb_build_object('id', id, 'sourceId', source_id,
           'decision', decision::jsonb)::text FROM automation_deduplication_inputs
           WHERE scope = ${input.scope} AND source_id = ${input.sourceId}
-          ORDER BY id LIMIT 1) AS identity)
-      SELECT known.*, CASE WHEN retained IS NULL THEN
+          ORDER BY id LIMIT 1) AS identity,
+        ${JSON.stringify(proposed._tag === "Duplicate" ? proposed.canonicalId : null)}::json AS proposed_root)
+      SELECT retained, identity, CASE WHEN retained IS NULL THEN
         (SELECT decision FROM automation_deduplication_inputs WHERE scope = ${input.scope}
           AND id = COALESCE(CASE WHEN identity::jsonb->'decision'->>'_tag' = 'Distinct'
             THEN identity::jsonb->>'id' ELSE identity::jsonb->'decision'->>'canonicalId' END,
-            ${proposed._tag === "Duplicate" ? proposed.canonicalId : null}))
+            known.proposed_root #>> '{}'))
         END AS root FROM known`;
     const row = yield* Schema.decodeUnknownEffect(AcceptanceRow)(rows[0]);
     if (row.retained !== null) {

@@ -503,6 +503,24 @@ it("serializes simultaneous exact identities and preserves immutable input/evide
   );
 });
 
+it.each(["\u0000", "\ud800", "\udfff"])(
+  "retains identity precedence over unused non-Postgres proposal text %j",
+  async (character) => {
+    await runtime.runPromise(
+      Effect.gen(function* () {
+        const repository = yield* DeduplicationRepository;
+        const root = input(randomUUID(), "root", "same-source");
+        yield* retain(root, distinct);
+        const proposed = duplicate(`bad${character}target`);
+        expect(yield* repository.accept(root, "0", proposed)).toEqual(distinct);
+        expect(
+          yield* repository.accept(input(root.scope, "alias", root.sourceId), "0", proposed),
+        ).toEqual({ ...duplicate(root.id), matchedBy: "identity" });
+      }),
+    );
+  },
+);
+
 it("rejects invalid canonical targets, keeps scopes separate and joins caller transactions", async () => {
   await runtime.runPromise(
     Effect.gen(function* () {
