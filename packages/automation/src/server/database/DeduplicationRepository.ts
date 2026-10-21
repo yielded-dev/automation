@@ -18,10 +18,16 @@ const StoredInput = Schema.Struct({
   sourceId: Schema.String,
   decision: DeduplicationDecision,
 });
+const StoredInputJson = Schema.fromJsonString(StoredInput);
+const AcceptanceRow = Schema.Struct({
+  retained: Schema.NullOr(Schema.String),
+  identity: Schema.NullOr(Schema.String),
+  root: Schema.NullOr(Schema.String),
+});
 const SnapshotRow = Schema.Struct({
   revision: Schema.String,
-  retained: Schema.NullOr(Schema.fromJsonString(StoredInput)),
-  identity: Schema.NullOr(Schema.fromJsonString(StoredInput)),
+  retained: Schema.NullOr(StoredInputJson),
+  identity: Schema.NullOr(StoredInputJson),
   candidates: Schema.fromJsonString(Schema.Array(DeduplicationCandidate)),
 });
 const canonicalId = (row: typeof StoredInput.Type) =>
@@ -102,29 +108,48 @@ const make = Effect.gen(function* () {
     if (scope === undefined)
       return yield* DeduplicationError.make({ reason: "store", cause: "Missing scope" });
 
-    const retained = yield* lookup(input);
-    if (retained !== undefined) return retained;
+    // The lock is acquired in the preceding statement, so this snapshot includes
+    // any decision committed while we were waiting for it.
+    const rows = yield* sql`
+      WITH known AS MATERIALIZED (SELECT
+        (SELECT jsonb_build_object('id', id, 'sourceId', source_id,
+          'decision', decision::jsonb)::text FROM automation_deduplication_inputs
+          WHERE scope = ${input.scope} AND id = ${input.id}) AS retained,
+        (SELECT jsonb_build_object('id', id, 'sourceId', source_id,
+          'decision', decision::jsonb)::text FROM automation_deduplication_inputs
+          WHERE scope = ${input.scope} AND source_id = ${input.sourceId}
+          ORDER BY id LIMIT 1) AS identity)
+      SELECT known.*, CASE WHEN retained IS NULL THEN
+        (SELECT decision FROM automation_deduplication_inputs WHERE scope = ${input.scope}
+          AND id = COALESCE(CASE WHEN identity::jsonb->'decision'->>'_tag' = 'Distinct'
+            THEN identity::jsonb->>'id' ELSE identity::jsonb->'decision'->>'canonicalId' END,
+            ${proposed._tag === "Duplicate" ? proposed.canonicalId : null}))
+        END AS root FROM known`;
+    const row = yield* Schema.decodeUnknownEffect(AcceptanceRow)(rows[0]);
+    if (row.retained !== null) {
+      const retained = yield* Schema.decodeUnknownEffect(StoredInputJson)(row.retained);
+      if (retained.sourceId !== input.sourceId)
+        return yield* DeduplicationError.make({ reason: "store", cause: "Input source changed" });
+      return retained.decision;
+    }
 
-    const [identity] = yield* sql<{ id: string; decision: string }>`
-      SELECT id, decision FROM automation_deduplication_inputs
-      WHERE scope = ${input.scope} AND source_id = ${input.sourceId}
-      ORDER BY id LIMIT 1`;
     let decision = proposed;
-    if (identity !== undefined) {
-      const saved = yield* Schema.decodeUnknownEffect(DecisionJson)(identity.decision);
-      const root = saved._tag === "Distinct" ? identity.id : saved.canonicalId;
-      decision = { _tag: "Duplicate", canonicalId: root, matchedBy: "identity", reason: null };
+    if (row.identity !== null) {
+      const identity = yield* Schema.decodeUnknownEffect(StoredInputJson)(row.identity);
+      decision = {
+        _tag: "Duplicate",
+        canonicalId: canonicalId(identity),
+        matchedBy: "identity",
+        reason: null,
+      };
     } else if (scope.revision !== revision)
       return yield* DeduplicationError.make({ reason: "conflict" });
 
     if (decision._tag === "Duplicate") {
-      const [root] = yield* sql<{ decision: string }>`
-        SELECT decision FROM automation_deduplication_inputs
-        WHERE scope = ${input.scope} AND id = ${decision.canonicalId}`;
       if (
         decision.canonicalId === input.id ||
-        root === undefined ||
-        (yield* Schema.decodeUnknownEffect(DecisionJson)(root.decision))._tag !== "Distinct"
+        row.root === null ||
+        (yield* Schema.decodeUnknownEffect(DecisionJson)(row.root))._tag !== "Distinct"
       )
         return yield* DeduplicationError.make({ reason: "invalid_decision" });
     }
