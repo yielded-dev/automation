@@ -1,5 +1,13 @@
 # @yielded/automation
 
+## 0.6.1
+
+### Patch Changes
+
+- [#25](https://github.com/yielded-dev/automation/pull/25) [`fcbbf4e`](https://github.com/yielded-dev/automation/commit/fcbbf4e4205d5f24679ebfffc695a59a9fee33aa) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Reduce PostgreSQL round trips when accepting source decisions while preserving identity precedence and concurrent deduplication.
+- Updated dependencies []:
+  - @yielded/sandbox@0.6.1
+
 ## 0.6.0
 
 ### Minor Changes
