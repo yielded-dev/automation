@@ -129,10 +129,11 @@ const make = Effect.gen(function* () {
         return yield* DeduplicationError.make({ reason: "invalid_decision" });
     }
 
+    // Candidate reads use jsonb; reject unsupported JSON before retaining a decision.
     yield* sql`INSERT INTO automation_deduplication_inputs (scope, id, source_id, context, decision)
       VALUES (${input.scope}, ${input.id}, ${input.sourceId},
-        ${yield* Schema.encodeEffect(ContextJson)(input.context)},
-        ${yield* Schema.encodeEffect(DecisionJson)(decision)})`;
+        ${yield* Schema.encodeEffect(ContextJson)(input.context)}::jsonb::text,
+        ${yield* Schema.encodeEffect(DecisionJson)(decision)}::jsonb::text)`;
     // Aliases affect exact identity lookup, which is always rechecked under this lock.
     // Only new canonical evidence invalidates an in-flight semantic comparison.
     if (decision._tag === "Distinct")

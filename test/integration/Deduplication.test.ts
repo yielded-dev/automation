@@ -278,6 +278,70 @@ it("preserves a policy failure and its cause without admitting the incoming item
   expect(executions).toEqual(["canonical"]);
 });
 
+it.each([
+  ["NUL", "\u0000"],
+  ["lone high surrogate", "\ud800"],
+  ["lone low surrogate", "\udc00"],
+])("rejects unreadable JSON containing %s without retaining a decision", async (_, character) => {
+  await runtime.runPromise(
+    Effect.gen(function* () {
+      const repository = yield* DeduplicationRepository;
+      const sql = (yield* SqlClient.SqlClient).withoutTransforms();
+      const executions: string[] = [];
+      const automation = pipeline(undefined, executions);
+      const scope = JSON.stringify([automation.name, automation.scope]);
+      const invalid = `failure${character}details`;
+      for (const request of [
+        { ...event("title"), input: { key: "title", title: invalid, evidence: {} } },
+        {
+          ...event("evidence"),
+          input: { key: "evidence", title: "Evidence", evidence: { detail: invalid } },
+        },
+      ]) {
+        expect(yield* automation.run(request).pipe(Effect.flip)).toMatchObject({
+          _tag: "DeduplicationError",
+          reason: "store",
+          cause: { _tag: "SqlError" },
+        });
+        expect(yield* automation.lookup(request)).toBeUndefined();
+      }
+      const reasonInput = input(scope, "reason");
+      expect(
+        yield* repository
+          .accept(reasonInput, "0", { ...distinct, reason: invalid })
+          .pipe(Effect.flip),
+      ).toMatchObject({ reason: "store", cause: { _tag: "SqlError" } });
+      expect(yield* repository.lookup(reasonInput)).toBeUndefined();
+      expect(
+        yield* sql`SELECT id FROM automation_deduplication_inputs WHERE scope = ${scope}`,
+      ).toEqual([]);
+      expect(
+        yield* sql`SELECT revision FROM automation_deduplication_scopes WHERE scope = ${scope}`,
+      ).toEqual([]);
+      expect(yield* pending(input(scope, "reader"))).toMatchObject({
+        revision: "0",
+        candidates: [],
+      });
+      expect(executions).toEqual([]);
+
+      const valid = {
+        ...event("valid"),
+        input: {
+          ...event("valid").input,
+          title: "Valid pair \ud83d\ude80",
+          evidence: { literalEscape: "\\u0000" },
+        },
+      };
+      expect((yield* automation.run(valid))._tag).toBe("Completed");
+      const snapshot = yield* pending(input(scope, "reader"));
+      expect(snapshot.revision).toBe("1");
+      expect(snapshot.candidates).toMatchObject([{ id: "valid", context: valid.input }]);
+      expect((yield* automation.run(event("next")))._tag).toBe("Completed");
+      expect(executions).toEqual(["valid", "next"]);
+    }),
+  );
+});
+
 it("retries a stale empty snapshot against the other committed canonical input", async () => {
   await runtime.runPromise(
     Effect.gen(function* () {
