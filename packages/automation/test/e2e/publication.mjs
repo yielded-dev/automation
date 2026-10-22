@@ -94,16 +94,19 @@ try {
         promptPolicy: "fixture",
         ...(kind === "rebase"
           ? { rebase: { branch: "repair/fixture", headSha: expected, pullRequestNumber: 1 } }
-          : kind === "continuation"
+          : kind === "continuation" || kind === "unpublished-continuation"
             ? {
                 continuation: {
                   runId: randomUUID(),
-                  candidateSha: expected,
-                  publication: {
-                    attemptId: randomUUID(),
-                    candidateSha: expected,
-                    pullRequestNumber: 1,
-                  },
+                  candidateSha: candidate,
+                  publication:
+                    kind === "continuation"
+                      ? {
+                          attemptId: randomUUID(),
+                          candidateSha: expected,
+                          pullRequestNumber: 1,
+                        }
+                      : null,
                 },
               }
             : {}),
@@ -129,7 +132,7 @@ try {
     fault = "none",
     remoteHead = actual,
     candidateSha = candidate,
-    { draft, pullRequest } = {},
+    { draft, pullRequest, verifiedHead } = {},
   ) => {
     const response = await mf.dispatchFetch("http://localhost/", {
       method: "POST",
@@ -140,6 +143,7 @@ try {
         fault,
         remoteHead,
         pullRequest,
+        verifiedHead,
         publication: {
           candidateSha,
           draft,
@@ -176,6 +180,57 @@ try {
     }
     console.log(JSON.stringify(item));
   };
+  await record("publish-unpublished-continuation-without-new-commit", async (item) => {
+    const launch = create(false, false, "unpublished-continuation");
+    item.accepted = await request(launch, "publish", "none", null, candidate, {
+      pullRequest: "missing",
+    });
+    assert.deepEqual(item.accepted.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+    const acceptedIntent = JSON.stringify({ sourceHead: candidate, previousHead: null, content });
+    assert.equal(pending(launch), `${acceptedIntent}|`);
+    // Resume after the exact saved commit reached the remote branch.
+    item.published = await request(launch, "publish", "none", candidate, candidate, {
+      pullRequest: "missing",
+    });
+    assert.equal(item.published.exit, "Success", JSON.stringify(item.published));
+    assert.equal(item.published.value.sourceHead, launch.launch.continuation.candidateSha);
+    assert.equal(item.published.value.number, 1);
+    assert.deepEqual(
+      item.published.requests.filter((request) => request.method !== "GET"),
+      [
+        {
+          method: "POST",
+          path: "/repos/fixture/project/pulls",
+          body: {
+            title: content.title,
+            head: `repair/${launch.origin.incidentId}-${launch.origin.attemptId}`,
+            base: "main",
+            draft: false,
+            body: content.body,
+          },
+        },
+      ],
+    );
+  });
+  for (const kind of ["initial", "continuation", "rebase"]) {
+    await record(`${kind}-requires-unpublished-changes`, async (item) => {
+      const launch = create(false, false, kind);
+      item.result = await request(launch, "publish", "none", expected, expected);
+      assert.deepEqual(item.result.reasons, [{ kind: "Fail", tag: "RepairConflict" }]);
+      assert.equal(pending(launch), "");
+      assert.deepEqual(item.result.requests, []);
+    });
+  }
+  await record("continuation-requires-exact-saved-snapshot", async (item) => {
+    const launch = create(false, false, "unpublished-continuation");
+    item.result = await request(launch, "publish", "none", null, candidate, {
+      pullRequest: "missing",
+      verifiedHead: actual,
+    });
+    assert.deepEqual(item.result.reasons, [{ kind: "Fail", tag: "RepairConflict" }]);
+    assert.equal(pending(launch), "");
+    assert.deepEqual(item.result.requests, []);
+  });
   for (const draft of [undefined, false, true]) {
     await record(`publication-draft-${draft ?? "default"}`, async (item) => {
       const launch = create(false, false, "initial");
