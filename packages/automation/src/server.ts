@@ -8,7 +8,7 @@ export {
 export { RepairsHandlers, makeRepairsHandlers } from "./server/RepairsHandlers";
 export { RunConfig } from "./server/RunConfig";
 export { RepairAuthorization } from "./server/RepairAuthorization";
-export { RepairPresentation } from "./server/RepairPresentation";
+export { RepairPresentation, repairPublicationContent } from "./server/RepairPresentation";
 export { RepairModel } from "./server/RepairModel";
 export { RepairErrorReporter } from "./server/RepairErrorReporter";
 export { RepairHostError, mapRepairHostError } from "./server/RepairHostError";

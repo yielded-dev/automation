@@ -4,7 +4,7 @@ import { PgClient } from "@effect/sql-pg";
 import { ConflictError, ServiceUnavailableError } from "@yielded/automation/domain/errors";
 import { RepairPublicationRequest } from "@yielded/automation/domain/proof";
 import { RunLaunch } from "@yielded/automation/domain/RepairExecution";
-import { RepairReportJson } from "@yielded/automation/domain/RepairReport";
+import { RepairChangeKind, RepairReportJson } from "@yielded/automation/domain/RepairReport";
 import { GithubAppAuth, GithubAppAuthError } from "@yielded/automation/server/GithubAppAuth";
 import {
   GithubFollowUpConfig,
@@ -33,6 +33,7 @@ import { RunConfig } from "@yielded/automation/server/RunConfig";
 import { SandboxAgentArtifacts } from "@yielded/sandbox/cloudflare/Bindings";
 
 const Input = Schema.Struct({
+  changeKind: Schema.optionalKey(RepairChangeKind),
   launch: RunLaunch,
   publication: RepairPublicationRequest,
   verifiedHead: Schema.optionalKey(Schema.String),
@@ -93,6 +94,10 @@ const describe = (cause: Cause.Cause<unknown>) =>
 export default {
   async fetch(request: Request, env: { DATABASE: Hyperdrive }) {
     const input = Schema.decodeUnknownSync(Input)(await request.json());
+    const publicationContent = {
+      ...content,
+      ...(input.changeKind ? { changeKind: input.changeKind } : {}),
+    };
     const reports: Array<{ operation: string; reasons: ReturnType<typeof describe> }> = [];
     const requests: Array<{ method: string; path: string; body?: unknown }> = [];
     const cancellations: Array<unknown> = [];
@@ -159,7 +164,9 @@ export default {
           Effect.succeed({ accountId: "1", name: "fixture[bot]", email: "fixture@example.com" }),
       }),
       Layer.mock(RepairModel, { usage: () => Effect.succeed(undefined) }),
-      Layer.mock(RepairPresentation, { publicationContent: () => Effect.succeed(content) }),
+      Layer.mock(RepairPresentation, {
+        publicationContent: () => Effect.succeed(publicationContent),
+      }),
       Layer.mock(SandboxAgentArtifacts, { definition: { binding: "UNUSED_ARTIFACTS" } }),
       Layer.mock(RepairSandboxTaskClient, {
         native: () =>
@@ -239,6 +246,16 @@ export default {
               sent.body = body;
               pullRequest = { ...pullRequest, ...body };
               return HttpClientResponse.fromWeb(request, Response.json(pullRequest));
+            }
+            if (request.method === "POST" && url.pathname.endsWith("/issues/1/labels")) {
+              if (request.body._tag !== "Uint8Array" || pullRequest === undefined)
+                return yield* Effect.die("Expected JSON PR labels");
+              const body = yield* Schema.decodeEffect(
+                Schema.fromJsonString(Schema.Struct({ labels: Schema.Array(Schema.String) })),
+              )(new TextDecoder().decode(request.body.body)).pipe(Effect.orDie);
+              sent.body = body;
+              pullRequest = { ...pullRequest, labels: body.labels.map((name) => ({ name })) };
+              return HttpClientResponse.fromWeb(request, Response.json(pullRequest.labels));
             }
             if (request.method !== "GET") return yield* Effect.die("Unexpected GitHub mutation");
             if (url.pathname.endsWith(`/git/ref/heads/${branch}`) && input.remoteHead === null)

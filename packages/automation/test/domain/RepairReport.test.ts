@@ -5,6 +5,7 @@ import {
   RepairReportJson,
   RepairVerification,
   repairReportOutputSchema,
+  repairPublicationMarkdown,
 } from "../../src/domain/RepairReport";
 import { RepairPublicationRequest } from "../../src/domain/proof";
 
@@ -144,6 +145,59 @@ const report = {
 };
 const decode = (input: unknown) =>
   Schema.decodeUnknownSync(RepairReportJson)(JSON.stringify(input));
+
+it("links the exact repair and source using the host's routes", () => {
+  const summary = decode(report).summary!;
+  const body = repairPublicationMarkdown(
+    summary,
+    { runId: "repair-1", changeKind: "bug" },
+    {
+      repair: (id) => `https://admin.example.com/bugs/source?repair=${id}`,
+      source: { label: "Bug [report]", url: "https://admin.example.com/bugs/source(1)" },
+      evaluation: (id) => `https://admin.example.com/evals?run=${id}`,
+    },
+  );
+  expect(body).toContain("**Bug fix**");
+  expect(body).toContain("[repair-1](https://admin.example.com/bugs/source?repair=repair-1)");
+  expect(body).toContain("[Bug \\[report\\]](https://admin.example.com/bugs/source%281%29)");
+  expect(body).not.toContain("## Prompt evaluation");
+});
+
+it("distinguishes eval changes and links failed and stale historical trials", () => {
+  const body = repairPublicationMarkdown(
+    decode(report).summary!,
+    {
+      runId: "repair-2",
+      changeKind: "eval",
+      evaluation: {
+        outcome: "unproven",
+        runs: [
+          {
+            id: "trial-1",
+            mode: "candidate",
+            passed: 1,
+            total: 3,
+            failed: 1,
+            skipped: 0,
+            errors: 1,
+            current: false,
+          },
+        ],
+      },
+    },
+    {
+      repair: (id) => `https://console.example.org/repairs/${id}`,
+      evaluation: (id) => `https://console.example.org/runs/${id}`,
+    },
+  );
+  expect(body).toContain("**Eval change**");
+  expect(body).toContain("[repair-2](https://console.example.org/repairs/repair-2)");
+  expect(body).toContain(
+    "[candidate trial-1](https://console.example.org/runs/trial-1): 1/3 passed, 1 failed, 0 skipped, 1 errors; stale.",
+  );
+  expect(body).toContain("has not established a passing correction");
+  expect(body).toContain("do not certify changed source code");
+});
 const PublicationJson = Schema.fromJsonString(RepairPublicationRequest);
 
 it("keeps ordinary report arrays and legacy optional fields decodable", () => {
