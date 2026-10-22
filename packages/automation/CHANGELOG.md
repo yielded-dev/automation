@@ -1,5 +1,13 @@
 # @yielded/automation
 
+## 0.6.2
+
+### Patch Changes
+
+- [#27](https://github.com/yielded-dev/automation/pull/27) [`ad00968`](https://github.com/yielded-dev/automation/commit/ad0096886040c6b3b24152a3b515b499881f05e0) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Publish a saved continuation without requiring another commit when its changes have not reached the pull request. Keep publication tied to the exact saved snapshot.
+- Updated dependencies []:
+  - @yielded/sandbox@0.6.2
+
 ## 0.6.1
 
 ### Patch Changes
