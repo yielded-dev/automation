@@ -35,6 +35,7 @@ import { SandboxAgentArtifacts } from "@yielded/sandbox/cloudflare/Bindings";
 const Input = Schema.Struct({
   launch: RunLaunch,
   publication: RepairPublicationRequest,
+  verifiedHead: Schema.optionalKey(Schema.String),
   remoteHead: Schema.NullOr(Schema.String),
   pullRequest: Schema.optionalKey(Schema.Literals(["missing", "draft", "ready"])),
   mode: Schema.Literals([
@@ -183,7 +184,7 @@ export default {
           Effect.gen(function* () {
             return {
               repositoryName: "fixture-source",
-              verifiedHead: input.publication.candidateSha,
+              verifiedHead: input.verifiedHead ?? input.publication.candidateSha,
               materializationId: "fixture-materialization",
               containerSize: "standard" as const,
               pipeline: null,

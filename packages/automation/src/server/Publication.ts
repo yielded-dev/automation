@@ -673,12 +673,14 @@ export const publishRepair = Effect.fn("RepairRun.publish")(function* (
   if (!(yield* authorizePublication))
     return yield* ConflictError.make({ message: "Repair publication authority is unavailable" });
   const origin = state.origin;
-  const admittedHead =
-    state.launch.continuation?.candidateSha ?? state.launch.rebase?.headSha ?? origin.targetSha;
+  const baseHead =
+    state.launch.continuation?.publication?.candidateSha ??
+    state.launch.rebase?.headSha ??
+    origin.targetSha;
 
   if (
     (yield* repairExecutionSnapshot).verifiedHead !== request.candidateSha ||
-    request.candidateSha === admittedHead
+    request.candidateSha === baseHead
   )
     return yield* ConflictError.make({ message: "Publication requires the exact saved candidate" });
   const sql = yield* SqlClient.SqlClient;
