@@ -1,5 +1,16 @@
 # @yielded/automation
 
+## 0.7.0
+
+### Minor Changes
+
+- [#29](https://github.com/yielded-dev/automation/pull/29) [`77a5169`](https://github.com/yielded-dev/automation/commit/77a51696b2c1e3b0678fe201f9fae828ca05c44c) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Render repair PRs with host-configured links to repairs, source reports and evaluation runs. Distinguish bug fixes, eval changes and features in the template and GitHub labels.
+
+### Patch Changes
+
+- Updated dependencies []:
+  - @yielded/sandbox@0.7.0
+
 ## 0.6.2
 
 ### Patch Changes
