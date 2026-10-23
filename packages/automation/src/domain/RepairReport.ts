@@ -77,7 +77,7 @@ const CodeExample = Schema.Struct({
   ),
 });
 
-/** The host owns the template. Agents supply bounded content, never an arbitrary PR body. */
+/** Automation owns the template. Agents supply bounded content, never an arbitrary PR body. */
 export const RepairSummary = Schema.Struct({
   title: line(100).annotate({
     description: "Name the concrete feature or fix; never an issue ID or status.",
@@ -261,6 +261,82 @@ export const repairSummaryMarkdown = (summary: RepairSummary): string => {
     );
 
   return sections.join("\n\n");
+};
+
+export const RepairChangeKind = Schema.Literals(["bug", "eval", "feature"]);
+export type RepairChangeKind = typeof RepairChangeKind.Type;
+
+export interface RepairPublicationContext {
+  readonly runId: string;
+  readonly changeKind: RepairChangeKind;
+  readonly evaluation?: {
+    readonly outcome: "passed" | "unproven" | "no_candidate";
+    readonly runs: ReadonlyArray<{
+      readonly id: string;
+      readonly mode: "baseline" | "candidate";
+      readonly passed: number;
+      readonly total: number;
+      readonly failed: number;
+      readonly skipped: number;
+      readonly errors: number;
+      readonly current: boolean;
+    }>;
+  };
+}
+
+/** Trusted host routes, never model output. Use public HTTP(S) URLs without credentials. */
+export interface RepairPublicationLinks {
+  readonly repair: (runId: string) => string;
+  readonly source?: { readonly label: string; readonly url: string };
+  readonly evaluation: (runId: string) => string;
+}
+
+const changeKindLabels = { bug: "Bug fix", eval: "Eval change", feature: "Feature" } as const;
+const publicationLink = (label: string, url: string) =>
+  `[${markdownText(label)}](${url
+    .replace(/[()]/g, (character) => (character === "(" ? "%28" : "%29"))
+    .replace(/[\s<>\\]/g, (character) => encodeURIComponent(character))})`;
+
+/** Render the shared PR template with host-owned classification, evidence and destinations. */
+export const repairPublicationMarkdown = (
+  summary: RepairSummary,
+  context: RepairPublicationContext,
+  links: RepairPublicationLinks,
+): string => {
+  const sections = [
+    `**${changeKindLabels[context.changeKind]}**`,
+    repairSummaryMarkdown(summary),
+    [
+      `- Repair run: ${publicationLink(context.runId, links.repair(context.runId))}`,
+      ...(links.source ? [`- ${publicationLink(links.source.label, links.source.url)}`] : []),
+    ].join("\n"),
+  ];
+
+  if (context.evaluation) {
+    const evaluation = context.evaluation;
+    const outcomes = {
+      passed:
+        "The latest historical prompt experiment passed its selected checks. CI must verify the committed regression and implementation together.",
+      unproven:
+        "The latest prompt trial has not established a passing correction. Review the recorded failures or missing evidence before adopting this proposal.",
+      no_candidate:
+        "This proposal has no candidate prompt trial. Review its recorded baseline and separate source-code validation.",
+    } as const;
+
+    sections.push(
+      "## Prompt evaluation",
+      outcomes[evaluation.outcome],
+      evaluation.runs
+        .map(
+          (run) =>
+            `- ${publicationLink(`${run.mode} ${run.id}`, links.evaluation(run.id))}: ${run.passed}/${run.total} passed, ${run.failed} failed, ${run.skipped} skipped, ${run.errors} errors${run.current ? "" : "; stale"}.`,
+        )
+        .join("\n"),
+      "These are historical prompt trials; the repair notes identify the selected policy. Match the proposed policy to its passing trial before adoption. Replays use the recorded deployed application revision and do not certify changed source code. No prompt was activated and no code was merged.",
+    );
+  }
+
+  return sections.filter(Boolean).join("\n\n");
 };
 
 export const repairReportMarkdown = (report: RepairReport, capturesBase?: string) => {

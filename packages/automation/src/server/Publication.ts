@@ -27,11 +27,13 @@ import {
   publicationPushMessage,
 } from "./PublicationPushFailure";
 import { RepairPresentation } from "./RepairPresentation";
+import { RepairChangeKind } from "../domain/RepairReport";
 
 const GIT_PUSH_TIMEOUT_MILLIS = 120_000;
 
 export interface PublicationContent {
   readonly kind: "repair";
+  readonly changeKind?: RepairChangeKind;
   readonly title: string;
   readonly body: string;
   readonly validationReceiptId?: string;
@@ -56,6 +58,7 @@ const PublicationIntent = Schema.Struct({
   previousHead: Schema.NullOr(Schema.String),
   content: Schema.Struct({
     kind: Schema.Literal("repair"),
+    changeKind: Schema.optionalKey(RepairChangeKind),
     title: Schema.String,
     body: Schema.String,
     validationReceiptId: Schema.optionalKey(Schema.String),
@@ -65,7 +68,7 @@ const PublicationIntent = Schema.Struct({
 const IntentJson = Schema.fromJsonString(PublicationIntent);
 const PublicationJson = Schema.fromJsonString(RepairPublicationReceipt);
 const repairLabel = "bot-repair";
-const requestLabels = { bug: "bug", feature: "enhancement" } as const;
+const requestLabels = { bug: "bug", eval: "eval", feature: "enhancement" } as const;
 const GithubLabels = Schema.Array(Schema.Struct({ name: Schema.String }));
 
 export const readPublication = Effect.gen(function* () {
@@ -547,10 +550,8 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
         message: "GitHub has not confirmed an open bot-authored PR for the saved candidate.",
       });
     }
-    const requiredLabels = [
-      repairLabel,
-      ...(state.launch.requestKind ? [requestLabels[state.launch.requestKind]] : []),
-    ];
+    const changeKind = content.changeKind ?? state.launch.requestKind;
+    const requiredLabels = [repairLabel, ...(changeKind ? [requestLabels[changeKind]] : [])];
     const hasRequiredLabels = (labels: typeof GithubLabels.Type) =>
       requiredLabels.every((required) => labels.some((label) => label.name === required));
 

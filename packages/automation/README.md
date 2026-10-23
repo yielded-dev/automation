@@ -194,6 +194,34 @@ const workflow = setupEffect({
 });
 ```
 
+## Repair PR presentation
+
+Use `repairPublicationContent` from `@yielded/automation/server/RepairPresentation`
+inside the host's `RepairPresentation.publicationContent` policy after authorizing
+publication. Automation renders the shared template; the host supplies the change
+kind (`bug`, `eval` or `feature`), saved evidence and application routes:
+
+```ts
+const content = repairPublicationContent(
+  summary,
+  {
+    runId,
+    changeKind: "bug",
+  },
+  {
+    repair: (id) => `https://admin.example.com/repairs/${encodeURIComponent(id)}`,
+    source: { label: "Bug report", url: "https://admin.example.com/bugs/123" },
+    evaluation: (id) => `https://admin.example.com/evals/${encodeURIComponent(id)}`,
+  },
+);
+```
+
+Routes must be trusted HTTP(S) URLs without credentials. Optional `evaluation`
+metadata adds linked historical trial results, keeping them separate from source
+verification. The returned change kind controls the `bug`, `eval` or `enhancement`
+label alongside `bot-repair`. Existing saved publication intents retain their
+original content and labels on retry.
+
 ## Checkpoints and recovery
 
 `InvestigationStore` has `load` and `save`. Bind these to the invocation's existing

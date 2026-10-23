@@ -132,7 +132,7 @@ try {
     fault = "none",
     remoteHead = actual,
     candidateSha = candidate,
-    { draft, pullRequest, verifiedHead } = {},
+    { draft, pullRequest, verifiedHead, changeKind } = {},
   ) => {
     const response = await mf.dispatchFetch("http://localhost/", {
       method: "POST",
@@ -144,6 +144,7 @@ try {
         remoteHead,
         pullRequest,
         verifiedHead,
+        changeKind,
         publication: {
           candidateSha,
           draft,
@@ -180,6 +181,39 @@ try {
     }
     console.log(JSON.stringify(item));
   };
+  for (const changeKind of ["bug", "eval"]) {
+    await record(`publication-kind-${changeKind}`, async (item) => {
+      const launch = create(false, false, "initial");
+      item.accepted = await request(launch, "publish", "none", null, candidate, {
+        pullRequest: "missing",
+        changeKind,
+      });
+      assert.deepEqual(item.accepted.reasons, [{ kind: "Fail", tag: "RepairUnavailable" }]);
+      item.result = await request(launch, "publish", "none", candidate, candidate, {
+        pullRequest: "missing",
+        changeKind,
+      });
+      assert.equal(item.result.exit, "Success", JSON.stringify(item.result));
+      assert.deepEqual(
+        item.result.requests.find((request) => request.path.endsWith("/labels")),
+        {
+          method: "POST",
+          path: "/repos/fixture/project/issues/1/labels",
+          body: { labels: ["bot-repair", changeKind] },
+        },
+      );
+      const savedIntent = JSON.parse(
+        pg.sql(`SELECT intent FROM repair_publication WHERE run_id=${quote(launch.runId)}`),
+      );
+      assert.equal(savedIntent.content.changeKind, changeKind);
+      item.replay = await request(launch, "publish", "installation", candidate, candidate, {
+        changeKind: changeKind === "bug" ? "eval" : "bug",
+      });
+      assert.equal(item.replay.exit, "Success");
+      assert.deepEqual(item.replay.value, item.result.value);
+      assert.deepEqual(item.replay.requests, []);
+    });
+  }
   await record("publish-unpublished-continuation-without-new-commit", async (item) => {
     const launch = create(false, false, "unpublished-continuation");
     item.accepted = await request(launch, "publish", "none", null, candidate, {
