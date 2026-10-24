@@ -32,7 +32,9 @@ export const GithubWork = Schema.Union([
   Schema.TaggedStruct("check", {
     ...Scope,
     pullRequestNumber: Id,
+    /** Check notifications may only act on the head that produced them. */
     headSha: Schema.optionalKey(RepairSourceRevision),
+    /** Dashboard observations coalesce by head; changed state preserves a wake. */
     observation: Schema.optionalKey(
       Schema.Struct({
         kind: Schema.Literals(["checks", "conflicts"]),

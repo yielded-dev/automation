@@ -32,6 +32,10 @@ saving the host's account association. Configure App auth and the existing
 to the selected repository and operation. Credentials remain outside accepted
 launches, evidence and public errors.
 
+`GithubAppAuth.installationToken`, `installationUrl` and `botLogin` are lazy,
+reusable Effects. Yield the property directly, for example
+`yield* auth.installationToken`, without calling it as a function.
+
 `readGithubWebhook(request, secret)` verifies the bounded raw body and decodes
 PR/comment, push, check and status events. Unsupported events return null.
 The host filters the saved repository and installation, then durably enqueues a
