@@ -44,7 +44,6 @@ const tools = versions(
   "vite-plus",
   "typescript",
   "tsrs",
-  "@yielded/effect-tsrs",
   "@cloudflare/workers-types",
   "@types/node",
 );
