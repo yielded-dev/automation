@@ -218,7 +218,7 @@ const make = Effect.gen(function* () {
       write?.deadline !== undefined &&
       write.deadline <= DateTime.toEpochMillis(yield* DateTime.now)
     )
-      return yield* new GithubWriteExpired();
+      return yield* GithubWriteExpired.make();
     const token = yield* (
       write === undefined
         ? Cache.get(readTokens, new ReadAccess({ repositoryId: work.repositoryId, access }))
@@ -233,7 +233,7 @@ const make = Effect.gen(function* () {
       write?.deadline === undefined
         ? 10_000
         : Math.min(10_000, write.deadline - DateTime.toEpochMillis(yield* DateTime.now));
-    if (remaining <= 0) return yield* new GithubWriteExpired();
+    if (remaining <= 0) return yield* GithubWriteExpired.make();
 
     const response = yield* http
       .execute(
@@ -261,7 +261,7 @@ const make = Effect.gen(function* () {
     return response;
   });
   const botName = Effect.fn("RepairGithubClient.botName")(function* () {
-    return yield* app.botLogin().pipe(Effect.provideService(HttpClient.HttpClient, http));
+    return yield* app.botLogin.pipe(Effect.provideService(HttpClient.HttpClient, http));
   });
   const readPullRequest = Effect.fn("RepairGithubClient.pullRequest")(function* (
     work: PullRequest,
@@ -353,7 +353,7 @@ const make = Effect.gen(function* () {
       request(work, path, undefined, "application/vnd.github+json", "checks").pipe(
         Effect.flatMap((response) =>
           response.status === 404
-            ? Effect.succeed(undefined)
+            ? Effect.void.pipe(Effect.as(undefined))
             : HttpClientResponse.filterStatusOk(response).pipe(
                 Effect.flatMap(HttpClientResponse.schemaBodyJson(schema)),
               ),
@@ -500,7 +500,7 @@ const make = Effect.gen(function* () {
           const path = `pulls/${work.pullRequestNumber}/reviews/${reviewId}`;
           const review = yield* readReview(path, Review);
 
-          if (review === undefined) return;
+          if (!review) return;
           if (review.commit_id !== headSha) {
             unavailableReviews.delete(reviewId);
 
@@ -517,7 +517,7 @@ const make = Effect.gen(function* () {
               ReviewComments,
             );
 
-            if (batch === undefined) return;
+            if (!batch) return;
             for (const comment of batch) {
               details.inline = retainGithubText([
                 details.inline,

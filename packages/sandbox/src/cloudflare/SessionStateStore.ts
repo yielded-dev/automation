@@ -80,7 +80,7 @@ export const StoredCodexTurn = Schema.Struct({
   threadParams: Schema.Record(Schema.String, Schema.Unknown),
   turnParams: Schema.Record(Schema.String, Schema.Unknown),
   resumeToken: Schema.NullOr(Schema.String),
-  deadlineAt: Schema.Number,
+  deadlineAt: Schema.Finite,
   threadId: Schema.NullOr(Schema.String),
   turnId: Schema.NullOr(Schema.String),
   previousTurnId: Schema.NullOr(Schema.String),
@@ -98,7 +98,7 @@ export const StoredPipelineTurn = Schema.Struct({
   baseHead: Schema.NullOr(Schema.String),
   resumeToken: Schema.NullOr(Schema.String),
   harnessVersion: Schema.NullOr(Schema.String),
-  startedAtMillis: Schema.Number,
+  startedAtMillis: Schema.Finite,
   persisted: Schema.NullOr(
     Schema.Struct({
       head: Schema.NullOr(Schema.String),
@@ -356,7 +356,7 @@ export class SessionStateStore extends Context.Service<
             value === undefined
               ? Effect.succeed(null)
               : // oxlint-disable-next-line no-restricted-properties -- durable KV is an untyped boundary.
-                Schema.decodeUnknownEffect(schema)(value).pipe(
+                Schema.decodeEffect(schema)(value).pipe(
                   Effect.catchCause((cause) =>
                     Effect.failCause(
                       Cause.map(cause, (cause) =>

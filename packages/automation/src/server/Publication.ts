@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Cause, Clock, DateTime, Effect, Option, Redacted, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
@@ -375,7 +376,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
           const authorization = {
             remote,
             instanceId: identity.instanceId,
-            grantId: crypto.randomUUID(),
+            grantId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
           };
 
           yield* Effect.gen(function* () {
@@ -447,7 +448,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
       const confirmedHead = yield* readRemoteHead;
 
       if (confirmedHead !== sourceHead) {
-        if (pushed._tag === "Failure") return yield* Effect.fail(pushed.failure);
+        if (pushed._tag === "Failure") return yield* pushed.failure;
 
         return yield* PublicationError.make({
           message: "GitHub has not confirmed the repair branch at the validated source.",
@@ -631,12 +632,12 @@ export const reconcilePublication = Effect.gen(function* () {
 
 /** A stopped run may leave its intent unresolved; defects and interruptions must still escape. */
 export const reconcilePublicationAfterStop = reconcilePublication.pipe(
-  Effect.catchCause((cause) =>
-    cause.reasons.every(
-      (reason) => Cause.isFailReason(reason) && isExpectedPublicationFailure(reason.error),
-    )
-      ? Effect.void
-      : Effect.failCause(cause),
+  Effect.catchCauseIf(
+    (cause) =>
+      cause.reasons.every(
+        (reason) => Cause.isFailReason(reason) && isExpectedPublicationFailure(reason.error),
+      ),
+    () => Effect.void,
   ),
 );
 

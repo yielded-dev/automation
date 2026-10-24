@@ -293,7 +293,7 @@ export const makeInvestigator = <
                   Stream.runLast,
                 ),
               ),
-              Effect.flatMap((result) =>
+              Effect.tap((result) =>
                 Option.isSome(result) && result.value.isFailure
                   ? Effect.failCause(
                       Cause.annotate(
@@ -301,7 +301,7 @@ export const makeInvestigator = <
                         Context.make(Toolkit.FailureOrigin, result.value.failureOrigin ?? "result"),
                       ),
                     )
-                  : Effect.succeed(result),
+                  : Effect.void,
               ),
               bounded(previous.remainingMs),
               Effect.exit,

@@ -65,15 +65,15 @@ export const refreshWorkspaceBaselines = Effect.gen(function* () {
       }).pipe(
         // Preserve the original cause and continue the bounded batch. No accepted
         // user execution occurs in these dedicated immutable cache owners.
-        Effect.catchCause((cause) =>
-          cause.reasons.every(
-            (reason) =>
-              Cause.isFailReason(reason) &&
-              (Predicate.isTagged(reason.error, "SandboxOperationError") ||
-                Predicate.isTagged(reason.error, "WorkspaceBaselineError")),
-          )
-            ? reportSanitizedCause(cause, { operation: "WorkspaceBaseline.refresh" })
-            : Effect.failCause(cause),
+        Effect.catchCauseIf(
+          (cause) =>
+            cause.reasons.every(
+              (reason) =>
+                Cause.isFailReason(reason) &&
+                (Predicate.isTagged(reason.error, "SandboxOperationError") ||
+                  Predicate.isTagged(reason.error, "WorkspaceBaselineError")),
+            ),
+          (cause) => reportSanitizedCause(cause, { operation: "WorkspaceBaseline.refresh" }),
         ),
       ),
     { concurrency: 1, discard: true },

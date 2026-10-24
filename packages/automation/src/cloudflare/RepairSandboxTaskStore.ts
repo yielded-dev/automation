@@ -46,10 +46,9 @@ const make = Effect.gen(function* () {
     return row === undefined ? undefined : yield* Schema.decodeEffect(StateJson)(row.state);
   });
   const required = read.pipe(
-    Effect.flatMap((state) =>
-      state === undefined
-        ? ConflictError.make({ message: "The repair execution has not been admitted" })
-        : Effect.succeed(state),
+    Effect.filterOrElse(
+      (state) => !(state === undefined),
+      () => ConflictError.make({ message: "The repair execution has not been admitted" }),
     ),
   );
   const put = (state: RepairSandboxState) =>

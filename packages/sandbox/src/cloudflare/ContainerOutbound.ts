@@ -169,7 +169,7 @@ const make = Effect.gen(function* () {
   const outbound = yield* Semaphore.make(1);
   const configureOutbound = Effect.gen(function* () {
     const authority = (yield* state.storage.kv.get("outbound-authority")) ?? null;
-    const current = yield* identity();
+    const current = yield* identity;
     const now = yield* Clock.currentTimeMillis;
 
     for (const [remote, authorization] of repositoryAuthorizations)
@@ -236,7 +236,7 @@ const make = Effect.gen(function* () {
           const now = yield* Clock.currentTimeMillis;
           const changed = yield* state.storage.transactionSync(() =>
             Effect.gen(function* () {
-              const current = yield* identity();
+              const current = yield* identity;
               const stopping = yield* read("stopping-instance", Schema.String);
 
               if (current?.instanceId !== instanceId || stopping === instanceId) {

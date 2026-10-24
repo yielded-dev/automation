@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { sourcePreparationDeadlineMs } from "./limits";
 import { DateTime, Effect, Schema } from "effect";
 import { SqlClient } from "effect/sql";
@@ -25,7 +26,11 @@ export const leaseRepairSourcePreparation = Effect.fn("leaseRepairSourcePreparat
   const key = "repository-preparation";
   const read = client.native(
     id,
-    { purpose: "source", operationId: crypto.randomUUID(), action: { _tag: "JournalGet", key } },
+    {
+      purpose: "source",
+      operationId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
+      action: { _tag: "JournalGet", key },
+    },
     Schema.NullOr(SourcePreparationLease),
   );
   const previous = yield* read;
@@ -33,7 +38,7 @@ export const leaseRepairSourcePreparation = Effect.fn("leaseRepairSourcePreparat
 
   if (previous !== null && previous.expiresAtMillis > now) return undefined;
   const lease: typeof SourcePreparationLease.Type = {
-    owner: crypto.randomUUID(),
+    owner: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
     expiresAtMillis: Math.min(deadlineAtMillis, now + sourcePreparationDeadlineMs + 30_000),
   };
   const compareAndSet = (expectedValue: typeof lease | null, value: typeof lease | null) =>

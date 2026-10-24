@@ -1,3 +1,4 @@
+import { webCryptoLayer } from "./Bindings";
 import {
   DirectoryBackupGateway,
   type DirectoryBackupRecord,
@@ -88,7 +89,7 @@ export const makeSandboxAgentContainer = <
     Layer.provideMerge(operationsLayer),
     Layer.provideMerge(
       Layer.merge(
-        DurableObjectContainer.layer,
+        Layer.merge(DurableObjectContainer.layer, webCryptoLayer),
         NativeSandboxNamespace.layer({ binding: options.namespaceBinding }),
       ),
     ),

@@ -33,10 +33,12 @@ const make = Effect.gen(function* () {
 
         return await response.text();
       },
-      catch: (cause) => cause,
+      catch: (cause) => new DurableObjectContainer.ContainerError({ operation, cause }),
     }).pipe(
       Effect.timeout("30 seconds"),
-      Effect.mapError((cause) => new DurableObjectContainer.ContainerError({ operation, cause })),
+      Effect.catchTag("TimeoutError", (cause) =>
+        Effect.fail(new DurableObjectContainer.ContainerError({ operation, cause })),
+      ),
     );
   });
   const supervisorCall = Effect.fnUntraced(function* (

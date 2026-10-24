@@ -27,9 +27,8 @@ export const SemanticDeduplicationResult = Schema.Struct({
 export type SemanticDeduplicationResult = typeof SemanticDeduplicationResult.Type;
 
 export const DeduplicationDecision = Schema.Union([
-  Schema.Struct({ _tag: Schema.Literal("Distinct"), reason: Schema.NullOr(Reason) }),
-  Schema.Struct({
-    _tag: Schema.Literal("Duplicate"),
+  Schema.TaggedStruct("Distinct", { reason: Schema.NullOr(Reason) }),
+  Schema.TaggedStruct("Duplicate", {
     canonicalId: Identifier,
     matchedBy: Schema.Literals(["identity", "semantic"]),
     reason: Schema.NullOr(Reason),
@@ -38,12 +37,8 @@ export const DeduplicationDecision = Schema.Union([
 export type DeduplicationDecision = typeof DeduplicationDecision.Type;
 
 export const DeduplicationSnapshot = Schema.Union([
-  Schema.Struct({
-    _tag: Schema.Literal("Retained"),
-    decision: DeduplicationDecision,
-  }),
-  Schema.Struct({
-    _tag: Schema.Literal("Pending"),
+  Schema.TaggedStruct("Retained", { decision: DeduplicationDecision }),
+  Schema.TaggedStruct("Pending", {
     revision: Identifier,
     identityMatch: Schema.NullOr(Identifier),
     candidates: Schema.Array(DeduplicationCandidate),

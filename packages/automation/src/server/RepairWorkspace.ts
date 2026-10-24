@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Effect, Schema } from "effect";
 
 import type { SandboxTaskNativeRequest } from "./sandbox-contracts/sandbox-task-native";
@@ -33,7 +34,11 @@ const repairNativeRequest = (
   Effect.gen(function* () {
     return yield* (yield* RepairSandboxTaskClient).native(
       yield* RepairExecutionContext,
-      { purpose, action, operationId: crypto.randomUUID() },
+      {
+        purpose,
+        action,
+        operationId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
+      },
       Schema.Json,
     );
   });

@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Cause, Effect, Exit, Layer, Schema, Stream } from "effect";
 
 import { SandboxOperationError } from "../cloudflare/NativeSandbox";
@@ -33,6 +34,7 @@ export const RepositoryGitPackSandboxLive = Layer.effect(
   RepositoryGitPack,
   Effect.gen(function* () {
     const sandbox = yield* SessionSandbox;
+    const crypto = yield* Crypto.Crypto;
     const execute = Effect.fn("RepositoryGitPackSandbox.command")(function* (
       command: readonly [string, ...Array<string>],
       cwd?: string,
@@ -66,7 +68,7 @@ export const RepositoryGitPackSandboxLive = Layer.effect(
       ): Stream.Stream<RepositoryGitPackPart<E>, E | RepositoryGitTransferFailure> =>
         Stream.unwrap(
           Effect.gen(function* () {
-            const directory = `/tmp/repository-git-pack-${crypto.randomUUID()}`;
+            const directory = `/tmp/repository-git-pack-${yield* crypto.randomUUIDv4().pipe(Effect.orDie)}`;
 
             yield* sandbox.ensure().pipe(Effect.withSpan("RepositoryGitPackSandbox.start"));
             yield* Effect.acquireRelease(sandbox.mkdir(directory), () =>

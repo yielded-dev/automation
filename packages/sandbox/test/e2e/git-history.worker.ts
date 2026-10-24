@@ -1,3 +1,5 @@
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
+import * as Crypto from "effect/Crypto";
 import { fixtureArtifacts } from "../../../../test/fixtures/artifacts.worker";
 import { Cause, Clock, Context, Effect, Layer, Option, Ref, Schema, Tracer } from "effect";
 import {
@@ -135,7 +137,7 @@ for (const method of [
         typeof args[0] === "string" &&
         args[0].endsWith(":checkpoint-validation") &&
         this.checkpointFault !== undefined &&
-        Schema.is(Schema.Struct({ _tag: Schema.Literal("Success") }))(result)
+        Schema.is(Schema.TaggedStruct("Success", {}))(result)
       ) {
         const fault = this.checkpointFault;
         this.checkpointFault = undefined;
@@ -285,8 +287,8 @@ const Input = Schema.Struct({
   divergent: Schema.optionalKey(Schema.String),
   publication: Schema.optionalKey(Source),
   recover: Schema.optionalKey(Schema.Boolean),
-  deadlineAtMs: Schema.optionalKey(Schema.Number),
-  startedAtMillis: Schema.optionalKey(Schema.Number),
+  deadlineAtMs: Schema.optionalKey(Schema.Finite),
+  startedAtMillis: Schema.optionalKey(Schema.Finite),
   waitForFork: Schema.optionalKey(Schema.Boolean),
   sourcePinTimeout: Schema.optionalKey(Schema.Boolean),
   checkpointBoundary: Schema.optionalKey(Schema.Literals(["interrupt", "replace"])),
@@ -715,7 +717,7 @@ const run = Effect.fn("GitHistoryFixture.run")(
             repositoryId: value.source.repositoryId,
             includeHistory: true,
           });
-        const marker = crypto.randomUUID();
+        const marker = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, marker);
         yield* store.materializationId.put(marker);
         if (value.checkpointBeforeSetup)
@@ -743,7 +745,7 @@ const run = Effect.fn("GitHistoryFixture.run")(
         const missingRecipeCommit = yield* readRepositorySetup("0".repeat(40)).pipe(Effect.exit);
         const inspection = { cwd: REPO_DIR, timeout: 30_000, maxBytes: 128 };
         const stale = yield* makeNativeSandbox(sandboxName, {
-          expectedInstanceId: crypto.randomUUID(),
+          expectedInstanceId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
           recovery: "exactWorkspaceRequired",
         });
         const staleEnsure = yield* stale.ensure().pipe(Effect.exit);
@@ -907,10 +909,13 @@ const run = Effect.fn("GitHistoryFixture.run")(
   ),
 );
 
-export const GitHistory = DurableObject.make(fixtureLayer, {
-  eventLayer: traceLayer,
-  rpc: { run },
-});
+export const GitHistory = DurableObject.make(
+  fixtureLayer.pipe(Layer.provideMerge(webCryptoLayer)),
+  {
+    eventLayer: traceLayer,
+    rpc: { run },
+  },
+);
 export default {
   async fetch(
     request: Request,

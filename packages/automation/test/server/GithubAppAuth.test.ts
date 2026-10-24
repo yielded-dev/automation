@@ -61,3 +61,37 @@ it("retains an approved workflow grant in the repository-scoped publication toke
     { repository_ids: [3], permissions: { contents: "read" } },
   ]);
 });
+
+it("keeps reusable token effects lazy, refreshes expired tokens and shares the new token", async () => {
+  let minted = 0;
+  const auth = makeGithubAppAuth(
+    { appId: "1", installationId: "2", privateKey: Redacted.make("unused") },
+    {
+      mintInstallationToken: () =>
+        Effect.sync(() => {
+          minted += 1;
+          return {
+            token: `token-${minted}`,
+            expiresAtMillis: minted === 1 ? 0 : 4_070_908_800_000,
+          };
+        }),
+    },
+  );
+  expect(minted).toBe(0);
+  const tokens = await Effect.runPromise(
+    Effect.gen(function* () {
+      const first = yield* auth.installationToken;
+      const next = yield* Effect.all([auth.installationToken, auth.installationToken], {
+        concurrency: "unbounded",
+      });
+      return [first, ...next];
+    }).pipe(
+      Effect.provideService(
+        HttpClient.HttpClient,
+        HttpClient.make(() => Effect.die("Unexpected request")),
+      ),
+    ),
+  );
+  expect(tokens).toEqual(["token-1", "token-2", "token-2"]);
+  expect(minted).toBe(2);
+});

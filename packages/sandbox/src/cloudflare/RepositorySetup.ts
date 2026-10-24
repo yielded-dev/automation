@@ -545,7 +545,7 @@ export const executeRepositorySetup = Effect.fn("RepositorySetup.execute")(funct
         }
       }).pipe(
         Effect.ensuring(
-          Effect.forEach(handles, (handle) => handle.kill().pipe(Effect.catch(() => Effect.void)), {
+          Effect.forEach(handles, (handle) => handle.kill().pipe(Effect.ignore), {
             discard: true,
           }),
         ),
@@ -940,59 +940,61 @@ export const prepareRepositorySetup = Effect.fn("RepositorySetup.prepare")(funct
       ),
       inMeasure("repository-services"),
       reportSetupFailure("RepositorySetup.ensureServices"),
-      Effect.catchTag("SandboxOperationError", (error) => {
-        const failed = {
-          ...report,
-          ...reportFor(
-            recipePath,
-            sourceHead,
-            "failed",
-            "A repository service failed to start or its port did not become ready. Fix its command and retry setup.",
-            report.steps,
-          ),
-        };
-
-        return store.repositorySetupReceipt
-          .put({ materializationId, fingerprint, sourceHead, prepared: true, report: failed })
-          .pipe(
-            Effect.andThen(
-              Effect.fail(
-                RepositorySetupError.make({
-                  message: failed.message,
-                  report: failed,
-                  recovery: "retryable",
-                  cause: error,
-                }),
-              ),
+      Effect.catchTags({
+        SandboxOperationError: (error) => {
+          const failed = {
+            ...report,
+            ...reportFor(
+              recipePath,
+              sourceHead,
+              "failed",
+              "A repository service failed to start or its port did not become ready. Fix its command and retry setup.",
+              report.steps,
             ),
-          );
-      }),
-      Effect.catchTag("RequiredWorkspaceServiceExited", (error) => {
-        const failed = {
-          ...report,
-          ...reportFor(
-            recipePath,
-            sourceHead,
-            "failed",
-            `Required service ${error.name} exited during startup. Use a long-running service command or move a one-shot command to start, then retry setup.`,
-            report.steps,
-          ),
-        };
+          };
 
-        return store.repositorySetupReceipt
-          .put({ materializationId, fingerprint, sourceHead, prepared: true, report: failed })
-          .pipe(
-            Effect.andThen(
-              Effect.fail(
-                RepositorySetupError.make({
-                  message: failed.message,
-                  report: failed,
-                  recovery: "retryable",
-                  cause: error,
-                }),
+          return store.repositorySetupReceipt
+            .put({ materializationId, fingerprint, sourceHead, prepared: true, report: failed })
+            .pipe(
+              Effect.andThen(
+                Effect.fail(
+                  RepositorySetupError.make({
+                    message: failed.message,
+                    report: failed,
+                    recovery: "retryable",
+                    cause: error,
+                  }),
+                ),
               ),
+            );
+        },
+        RequiredWorkspaceServiceExited: (error) => {
+          const failed = {
+            ...report,
+            ...reportFor(
+              recipePath,
+              sourceHead,
+              "failed",
+              `Required service ${error.name} exited during startup. Use a long-running service command or move a one-shot command to start, then retry setup.`,
+              report.steps,
             ),
-          );
+          };
+
+          return store.repositorySetupReceipt
+            .put({ materializationId, fingerprint, sourceHead, prepared: true, report: failed })
+            .pipe(
+              Effect.andThen(
+                Effect.fail(
+                  RepositorySetupError.make({
+                    message: failed.message,
+                    report: failed,
+                    recovery: "retryable",
+                    cause: error,
+                  }),
+                ),
+              ),
+            );
+        },
       }),
     );
     yield* store.repositorySetupReceipt.put({

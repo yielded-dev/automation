@@ -54,7 +54,7 @@ const make = Effect.gen(function* () {
     );
   });
   const processBelongsToBoot = Effect.fnUntraced(function* (id: string) {
-    const current = yield* identity();
+    const current = yield* identity;
 
     if (current === null && (yield* container.running))
       return yield* error("processStatus", "Running container has no ownership receipt");
@@ -145,7 +145,7 @@ const make = Effect.gen(function* () {
     start: EnsureOptions,
   ) {
     // oxlint-disable-next-line no-restricted-properties -- native inspection request boundary.
-    const input = yield* Schema.decodeUnknownEffect(InspectionOptions)(options);
+    const input = yield* Schema.decodeEffect(InspectionOptions)(options);
     const deadlineAt = Math.min(
       input.deadlineAt ?? Infinity,
       (yield* Clock.currentTimeMillis) + input.timeout,
@@ -216,7 +216,7 @@ const make = Effect.gen(function* () {
       ),
     signalProcess: (id: string, instanceId: string, signal: number) =>
       Effect.gen(function* () {
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (current?.instanceId !== instanceId) {
           if (current === null && (yield* container.running))

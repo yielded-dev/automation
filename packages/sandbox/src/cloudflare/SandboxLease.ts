@@ -17,26 +17,25 @@ export const withSandboxLease = Effect.fn("SandboxLease.withLease")(function* <A
     while (true) {
       const renewed = yield* sandbox.lease(id, true, true).pipe(
         Effect.as(true),
-        Effect.catchCause((cause) => {
-          if (
-            cause.reasons.length === 0 ||
-            !cause.reasons.every(
+        Effect.catchCauseIf(
+          (cause) =>
+            cause.reasons.length > 0 &&
+            cause.reasons.every(
               (reason) => Cause.isFailReason(reason) && reason.error.code !== "LEASE_LOST",
-            )
-          )
-            return Effect.failCause(cause);
-
-          // An unavailable renewal does not prove owner loss. Report the first
-          // failure in this retry episode without exposing private RPC details.
-          return (
-            retryDelayMillis === 1_000
-              ? reportSanitizedCause(cause, { operation: "SandboxLease.renew" })
-              : Effect.logWarning(
-                  "Sandbox lease renewal failed; retrying",
-                  sanitizeCause(cause, { operation: "SandboxLease.renew" }),
-                )
-          ).pipe(Effect.as(false));
-        }),
+            ),
+          (cause) => {
+            // An unavailable renewal does not prove owner loss. Report the first
+            // failure in this retry episode without exposing private RPC details.
+            return (
+              retryDelayMillis === 1_000
+                ? reportSanitizedCause(cause, { operation: "SandboxLease.renew" })
+                : Effect.logWarning(
+                    "Sandbox lease renewal failed; retrying",
+                    sanitizeCause(cause, { operation: "SandboxLease.renew" }),
+                  )
+            ).pipe(Effect.as(false));
+          },
+        ),
       );
 
       if (renewed) return;

@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Cause, Clock, Config, Context, Effect, Layer, Predicate, Schema } from "effect";
 import { DurableObjectContainer, DurableObjectState } from "effect-cf";
 
@@ -67,7 +68,7 @@ const make = Effect.gen(function* () {
       imageDigest,
       classIdentity: (yield* namespace.idFromName(CAPACITY_NAME)).toString(),
       running: yield* container.running,
-      current: (yield* container.running) ? yield* identity() : null,
+      current: (yield* container.running) ? yield* identity : null,
       checkpoint: (yield* read("workspace-checkpoint", CheckpointRecord))?.result ?? null,
     };
   });
@@ -123,7 +124,7 @@ const make = Effect.gen(function* () {
             if (monitored === current.instanceId) monitored = null;
             const stopping =
               (yield* read("stopping-instance", Schema.String)) === current.instanceId;
-            const latest = yield* identity();
+            const latest = yield* identity;
 
             if (latest?.instanceId !== current.instanceId) return;
             const observation = yield* container.running.pipe(Effect.exit);
@@ -176,11 +177,11 @@ const make = Effect.gen(function* () {
   const protectNativeIO = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.acquireUseRelease(
       Effect.gen(function* () {
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (!current || current.timings.ownerReadyAt === null || !(yield* container.running))
           return null;
-        const id = crypto.randomUUID();
+        const id = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
 
         yield* protect(id, 20 * 60_000);
 
@@ -191,7 +192,7 @@ const make = Effect.gen(function* () {
         Effect.gen(function* () {
           if (
             protection &&
-            (yield* identity())?.instanceId === protection.instanceId &&
+            (yield* identity)?.instanceId === protection.instanceId &&
             (yield* container.running)
           )
             yield* protect(protection.id, null);
@@ -208,9 +209,9 @@ const make = Effect.gen(function* () {
     }
     // Admission and boot permits serialize startup without blocking other DO events.
     // Native I/O can outlast blockConcurrencyWhile's 30-second limit.
-    const started = yield* Effect.gen(function* () {
+    const start = Effect.gen(function* () {
       if (yield* container.running) {
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (!current)
           return yield* ensureError(
@@ -271,14 +272,14 @@ const make = Effect.gen(function* () {
         saved.classIdentity === classIdentity
           ? saved
           : null;
-      const previous = yield* identity();
+      const previous = yield* identity;
 
       if (previous) yield* stop;
       yield* state.storage.kv.delete("process-supervisor-token");
       yield* state.storage.kv.delete("supervisor-protocol");
       yield* outboundOwner.clear;
       yield* state.storage.kv.delete("repository-authorizations");
-      const instanceId = crypto.randomUUID();
+      const instanceId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
       let current: ContainerIdentity = {
         instanceId,
         imageDigest: image,
@@ -306,7 +307,7 @@ const make = Effect.gen(function* () {
 
         return yield* error("capacity.reserve", "Container capacity is exhausted");
       }
-      const token = crypto.randomUUID();
+      const token = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
 
       yield* state.storage.kv.put("process-supervisor-token", token);
       const startOptions = {
@@ -365,6 +366,8 @@ const make = Effect.gen(function* () {
       return { current };
     });
 
+    const started = yield* start;
+
     if (started.current.timings.ownerReadyAt === null) {
       // Rehydration and explicit authority changes install their own outbound handlers.
       yield* configureOutbound;
@@ -388,7 +391,7 @@ const make = Effect.gen(function* () {
         ensureAttempt(input).pipe(
           Effect.catchCause((cause) =>
             Effect.gen(function* () {
-              const current = yield* identity();
+              const current = yield* identity;
               const snapshotId = current?.restoredSnapshotId;
 
               // Native start may return before the restored filesystem becomes
@@ -450,7 +453,7 @@ const make = Effect.gen(function* () {
     yield* state.storage.kv.delete("preview");
   });
   const stop = Effect.gen(function* () {
-    const current = yield* identity();
+    const current = yield* identity;
 
     yield* revokePreview;
     yield* outboundOwner.clear;
@@ -472,7 +475,7 @@ const make = Effect.gen(function* () {
     // An evicted owner never rehydrates repository bearer credentials.
     yield* outboundOwner.clear;
     yield* state.storage.kv.delete("repository-authorizations");
-    const current = yield* identity();
+    const current = yield* identity;
 
     if (!(yield* container.running)) {
       if (current) yield* stop;
@@ -497,7 +500,7 @@ const make = Effect.gen(function* () {
     revokePreview,
     lease: (id: string, active: boolean, instanceId: string, renewal: boolean) =>
       Effect.gen(function* () {
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (current?.instanceId !== instanceId || !(yield* container.running)) {
           if (active) return yield* new LeaseLostError({ instanceId });
@@ -526,7 +529,7 @@ const make = Effect.gen(function* () {
       ),
     capacityInUse: (instanceId: string) =>
       Effect.gen(function* () {
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (yield* container.running) return current === null || current.instanceId === instanceId;
 
