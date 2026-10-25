@@ -1,3 +1,4 @@
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
 import { Cause, Effect, Layer, Schema } from "effect";
 import { DurableObjectSqlite, DurableObjectState, type WorkerEnvironment } from "effect-cf";
 import { ConflictError, ServiceUnavailableError } from "../domain/errors";
@@ -118,7 +119,7 @@ export const makeRepairSandboxTaskDurableObject = <
     options.outboundAuthorityLayer ?? OutboundAuthority.noneLayer,
     options.taskNotificationsLayer ?? Layer.empty,
   ).pipe(
-    Layer.provideMerge(DurableObjectSqlite.layer()),
+    Layer.provideMerge(Layer.merge(DurableObjectSqlite.layer(), webCryptoLayer)),
     Layer.tapCause((cause) =>
       reportSanitizedCause(cause, { operation: "RepairSandboxTask.initialize" }).pipe(
         withErrorReportingScope,

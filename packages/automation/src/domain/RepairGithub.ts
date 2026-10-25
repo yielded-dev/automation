@@ -29,9 +29,8 @@ const Scope = {
 };
 
 export const GithubWork = Schema.Union([
-  Schema.Struct({
+  Schema.TaggedStruct("check", {
     ...Scope,
-    _tag: Schema.Literal("check"),
     pullRequestNumber: Id,
     /** Check notifications may only act on the head that produced them. */
     headSha: Schema.optionalKey(RepairSourceRevision),
@@ -47,14 +46,9 @@ export const GithubWork = Schema.Union([
     requestId: Schema.optionalKey(Schema.String.check(Schema.isUUID())),
   }),
   /** A tracked repair PR merged; the host owns downstream resolution. */
-  Schema.Struct({
+  Schema.TaggedStruct("merged", { ...Scope, pullRequestNumber: Id }),
+  Schema.TaggedStruct("comment", {
     ...Scope,
-    _tag: Schema.Literal("merged"),
-    pullRequestNumber: Id,
-  }),
-  Schema.Struct({
-    ...Scope,
-    _tag: Schema.Literal("comment"),
     pullRequestNumber: Id,
     comment: GithubComment,
     question: Schema.NonEmptyString.check(Schema.isMaxLength(4_000)),

@@ -23,6 +23,10 @@ Coding services under `/server` and `/cloudflare` additionally require
 `@yielded/sandbox` and `effect-cf`, declared as optional peers. Import individual
 server modules when using an operation independently of coding execution.
 
+Direct repair source, workspace and publication compositions require
+`Crypto.Crypto`. `makeRepairSandboxTaskDurableObject` supplies it; custom roots
+can use the [Sandbox composition guidance](../sandbox/README.md#compose-at-the-host-boundary).
+
 ## Source pipelines
 
 Define provider interpretation once, then bind sources to a workflow. Sources

@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Cause, Clock, Effect, Option, Redacted, Schedule } from "effect";
 
 import { sanitizeCause } from "../observability/FailureDiagnostic";
@@ -47,7 +48,7 @@ const prepareWorkspaceOperation = Effect.fnUntraced(function* (
       operation: {
         ...configuration,
         id: yield* sandbox.allocateProcess(),
-        token: crypto.randomUUID(),
+        token: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
         port: 4502,
         mode: "command",
         ...(workspaceIdentity === null ? {} : { workspaceIdentity }),

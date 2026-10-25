@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import { Cause, Clock, Context, Effect, Layer, Redacted, Schedule, Schema } from "effect";
 import type { Artifacts } from "effect-cf";
 import { FetchHttpClient } from "effect/http";
@@ -311,6 +312,7 @@ const clearRepositoryAuthorization = Effect.fn("ArtifactsCheckout.clearRepositor
 );
 
 const make = Effect.gen(function* () {
+  const crypto = yield* Crypto.Crypto;
   const repositoryDirectory = yield* ArtifactsCheckoutDirectory;
   const artifacts = yield* SandboxAgentArtifacts;
   const config = yield* SandboxAgentConfig;
@@ -756,16 +758,16 @@ const make = Effect.gen(function* () {
 
     yield* readSourcePin(retained.source, retained.deadlineAtMillis);
     const existing = yield* plannedForkGeneration(retained).pipe(
-      Effect.catchCause((cause) =>
-        cause.reasons.length > 0 &&
-        cause.reasons.every(
-          (reason) =>
-            Cause.isFailReason(reason) &&
-            reason.error._tag === "ArtifactsOperationError" &&
-            isForkProvisioning(reason.error),
-        )
-          ? Effect.succeed(null)
-          : Effect.failCause(cause),
+      Effect.catchCauseIf(
+        (cause) =>
+          cause.reasons.length > 0 &&
+          cause.reasons.every(
+            (reason) =>
+              Cause.isFailReason(reason) &&
+              reason.error._tag === "ArtifactsOperationError" &&
+              isForkProvisioning(reason.error),
+          ),
+        () => Effect.succeed(null),
       ),
       inMeasure("fork-lookup"),
     );
@@ -958,14 +960,14 @@ const make = Effect.gen(function* () {
     expectedRepositoryId?: string,
   ) {
     return yield* mainHead(forkName, expectedRepositoryId).pipe(
-      Effect.flatMap((remoteHead) =>
-        remoteHead === expectedHead
-          ? Effect.succeed(remoteHead)
-          : PushVerificationError.make({
-              forkName,
-              localHead: expectedHead,
-              remoteHead,
-            }),
+      Effect.filterOrElse(
+        (remoteHead) => remoteHead === expectedHead,
+        (remoteHead) =>
+          PushVerificationError.make({
+            forkName,
+            localHead: expectedHead,
+            remoteHead,
+          }),
       ),
       Effect.retry({
         times: 2,
@@ -1875,16 +1877,16 @@ const make = Effect.gen(function* () {
 
       return yield* artifacts.delete(intent.forkName).pipe(boundedArtifacts("deletePlannedFork"));
     }).pipe(
-      Effect.catchCause((cause) =>
-        cause.reasons.length > 0 &&
-        cause.reasons.every(
-          (reason) =>
-            Cause.isFailReason(reason) &&
-            reason.error._tag === "ArtifactsOperationError" &&
-            reason.error.code === "NOT_FOUND",
-        )
-          ? Effect.succeed(false)
-          : Effect.failCause(cause),
+      Effect.catchCauseIf(
+        (cause) =>
+          cause.reasons.length > 0 &&
+          cause.reasons.every(
+            (reason) =>
+              Cause.isFailReason(reason) &&
+              reason.error._tag === "ArtifactsOperationError" &&
+              reason.error.code === "NOT_FOUND",
+          ),
+        () => Effect.succeed(false),
       ),
     );
   });
@@ -1897,9 +1899,11 @@ const make = Effect.gen(function* () {
     cloneSourceIntoSandbox,
     deletePlannedFork,
     sourceGeneration,
-    cloneIntoSandbox,
+    cloneIntoSandbox: (...args: Parameters<typeof cloneIntoSandbox>) =>
+      cloneIntoSandbox(...args).pipe(Effect.provideService(Crypto.Crypto, crypto)),
     discardCloneReceipt,
-    cloneGenerationIntoSandbox,
+    cloneGenerationIntoSandbox: (...args: Parameters<typeof cloneGenerationIntoSandbox>) =>
+      cloneGenerationIntoSandbox(...args).pipe(Effect.provideService(Crypto.Crypto, crypto)),
     readGenerationMainHead: (generation: ArtifactsRepositoryGeneration) =>
       mainHead(generation.repositoryName, generation.repositoryId),
     retargetOrigin,

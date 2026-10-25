@@ -16,5 +16,5 @@ export class OutboundAuthority extends Context.Service<
   }
 >()("kommunikasie/sandbox-agent/OutboundAuthority") {
   /** Standalone sessions have no application host capability. */
-  static readonly noneLayer = Layer.succeed(this, { mint: () => Effect.succeed(Option.none()) });
+  static readonly noneLayer = Layer.succeed(this, { mint: () => Effect.succeedNone });
 }

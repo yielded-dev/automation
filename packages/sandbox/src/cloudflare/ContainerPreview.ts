@@ -159,7 +159,7 @@ const make = Effect.gen(function* () {
             !Number.isSafeInteger(input.generation)
           )
             return yield* error("preview.grant", "Invalid preview capability");
-          const current = yield* identity();
+          const current = yield* identity;
 
           if (
             !current ||
@@ -220,7 +220,7 @@ const make = Effect.gen(function* () {
 
       if (!token || !/^[a-f0-9]{32}$/.test(token)) return new Response(null, { status: 404 });
       const saved = yield* read("preview", PreviewRecord);
-      const current = yield* identity();
+      const current = yield* identity;
 
       if (
         !saved ||
@@ -289,7 +289,7 @@ const make = Effect.gen(function* () {
         const url = new URL(request.url);
         const port = Number(url.port || "80");
         const expected = request.headers.get(NATIVE_INSTANCE_HEADER);
-        const current = yield* identity();
+        const current = yield* identity;
 
         if (
           url.hostname !== NATIVE_PORT_HOST ||

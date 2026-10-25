@@ -211,7 +211,7 @@ export interface GithubAppAuthShape {
   readonly availability: "configured" | "unavailable";
   /** Credential-bound numeric App ID. Required by binding-aware adapters; optional for legacy hosts. */
   readonly appId?: string;
-  readonly installationToken: () => Effect.Effect<
+  readonly installationToken: Effect.Effect<
     string,
     GithubAppAuthError | GithubRateLimited,
     HttpClient.HttpClient
@@ -273,13 +273,13 @@ export interface GithubAppAuthShape {
     HttpClient.HttpClient
   >;
   /** Public install/configure screen for this credential-bound app. */
-  readonly installationUrl: () => Effect.Effect<
+  readonly installationUrl: Effect.Effect<
     string,
     GithubAppAuthError | GithubRateLimited,
     HttpClient.HttpClient
   >;
   /** Login of this credential-bound app's bot, without resolving its Git identity. */
-  readonly botLogin: () => Effect.Effect<
+  readonly botLogin: Effect.Effect<
     string,
     GithubAppAuthError | GithubRateLimited,
     HttpClient.HttpClient
@@ -317,7 +317,7 @@ export const makeGithubAppAuth = (
       : undefined;
   });
 
-  const installationToken = Effect.fn("GithubAppAuth.installationToken")(function* () {
+  const installationToken = Effect.gen(function* () {
     const cached = yield* freshToken;
 
     if (cached !== undefined) return cached;
@@ -337,7 +337,7 @@ export const makeGithubAppAuth = (
         return next.token;
       }),
     );
-  });
+  }).pipe(Effect.withSpan("GithubAppAuth.installationToken"));
 
   const refreshInstallationToken = Effect.fn("GithubAppAuth.refreshInstallationToken")(function* (
     rejectedToken: string,
@@ -384,16 +384,16 @@ export const makeGithubAppAuth = (
     return app;
   });
 
-  const botLogin = Effect.fn("GithubAppAuth.botLogin")(function* () {
+  const botLogin = Effect.gen(function* () {
     const app = yield* fetchApp();
 
     return `${app.slug}[bot]`;
-  });
+  }).pipe(Effect.withSpan("GithubAppAuth.botLogin"));
 
   const fetchBotCommitter = Effect.fn("GithubAppAuth.fetchBotCommitter")(function* (
     token: Redacted.Redacted<string>,
   ) {
-    const login = yield* botLogin();
+    const login = yield* botLogin;
     const userResponse = yield* HttpClient.get(
       `https://api.github.com/users/${encodeURIComponent(login)}`,
       { headers: { ...githubHeaders, authorization: `Bearer ${Redacted.value(token)}` } },
@@ -435,8 +435,9 @@ export const makeGithubAppAuth = (
   return {
     availability: "configured",
     appId: credentials.appId,
-    installationUrl: () =>
-      fetchApp().pipe(Effect.map((app) => `https://github.com/apps/${app.slug}/installations/new`)),
+    installationUrl: fetchApp().pipe(
+      Effect.map((app) => `https://github.com/apps/${app.slug}/installations/new`),
+    ),
     installationToken,
     repositoryInstallation: Effect.fn("GithubAppAuth.repositoryInstallation")(
       function* (repositoryUrl) {
@@ -456,7 +457,7 @@ export const makeGithubAppAuth = (
         );
 
         return yield* HttpClientResponse.schemaBodyJson(GithubInstallation)(response).pipe(
-          Effect.map(Option.some),
+          Effect.asSome,
           Effect.mapError(responseError("decodeRepositoryInstallation")),
         );
       },
@@ -485,7 +486,7 @@ export const makeGithubAppAuth = (
             Schema.is(GithubAppAuthError)(error) &&
             HttpClientError.isHttpClientError(error.cause) &&
             error.cause.response?.status === 422,
-          () => Effect.succeed(Option.none()),
+          () => Effect.succeedNone,
         ),
       ),
     refreshInstallationToken,
@@ -507,15 +508,15 @@ export class GithubAppAuth extends Context.Service<GithubAppAuth, GithubAppAuthS
     GithubAppAuth,
     GithubAppAuth.of({
       availability: "unavailable",
-      installationUrl: () =>
-        Effect.fail(authError("installationUrl")("GitHub App authentication is not configured")),
-      installationToken: () =>
-        Effect.fail(
-          GithubAppAuthError.make({
-            operation: "GithubAppAuth.installationToken",
-            message: "GitHub App authentication is not configured",
-          }),
-        ),
+      installationUrl: Effect.fail(
+        authError("installationUrl")("GitHub App authentication is not configured"),
+      ),
+      installationToken: Effect.fail(
+        GithubAppAuthError.make({
+          operation: "GithubAppAuth.installationToken",
+          message: "GitHub App authentication is not configured",
+        }),
+      ),
       repositoryReadToken: () =>
         Effect.fail(
           GithubAppAuthError.make({
@@ -542,8 +543,7 @@ export class GithubAppAuth extends Context.Service<GithubAppAuth, GithubAppAuthS
             message: "GitHub App authentication is not configured",
           }),
         ),
-      botLogin: () =>
-        Effect.fail(authError("botLogin")("GitHub App authentication is not configured")),
+      botLogin: Effect.fail(authError("botLogin")("GitHub App authentication is not configured")),
       botCommitter: () =>
         Effect.fail(
           GithubAppAuthError.make({

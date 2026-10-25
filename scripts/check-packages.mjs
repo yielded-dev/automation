@@ -22,6 +22,7 @@ assert.ok(args.length <= 1, "Usage: node scripts/check-packages.mjs [local conta
 const [image] = args;
 assert.equal(process.env.MINIFLARE_WORKERD_PATH, undefined, "Use the pinned workerd binary");
 const manifest = JSON.parse(await readFile(join(root, "package.json"), "utf8"));
+const { compilerOptions } = JSON.parse(await readFile(join(root, "tsconfig.json"), "utf8"));
 const directory = await realpath(await mkdtemp(join(tmpdir(), "package-consumers-")));
 assert.ok(
   !directory.startsWith(`${await realpath(root)}${sep}`),
@@ -43,7 +44,7 @@ const tools = versions(
   "miniflare",
   "vite-plus",
   "typescript",
-  "tsrs",
+  "@yielded/effect-tsrs",
   "@cloudflare/workers-types",
   "@types/node",
 );
@@ -88,6 +89,7 @@ async function consumer(name, dependencies, devDependencies, fixtures, absent, g
         noEmit: true,
         skipLibCheck: true,
         types: ["@cloudflare/workers-types", "node"],
+        plugins: compilerOptions.plugins,
       },
       include: ["packages/*/test/e2e/**/*.ts", "test/fixtures/**/*.ts"],
     }),

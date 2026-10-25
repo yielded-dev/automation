@@ -69,7 +69,7 @@ const make = Effect.gen(function* () {
         return yield* error("snapshot", "Capture outcome is unknown; snapshot was not repeated");
       }
     }
-    const current = yield* identity();
+    const current = yield* identity;
 
     if (
       !current ||
@@ -115,8 +115,9 @@ const make = Effect.gen(function* () {
       ensure(start).pipe(
         Effect.andThen(files.stat(path)),
         Effect.as(true),
-        Effect.catchCause((cause) =>
-          failureCode(cause) === "ENOENT" ? Effect.succeed(false) : Effect.failCause(cause),
+        Effect.catchCauseIf(
+          (cause) => failureCode(cause) === "ENOENT",
+          () => Effect.succeed(false),
         ),
       ),
     readFileString: (path: string, start: EnsureOptions) =>

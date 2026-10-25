@@ -49,8 +49,8 @@ Neither package automatically merges or deploys a proposed pull request.
 
 ## Compatibility
 
-Historical opaque service IDs, process paths, durable object names, wire schemas
-and storage keys are unchanged. Keep the same storage and namespace bindings when
+Historical opaque service IDs, process paths, durable object names and storage
+keys are unchanged. Keep the same storage and namespace bindings when
 adopting the packages. Queue retention bridges a rolling upgrade in which an older
 receiver does not yet expose a new method.
 

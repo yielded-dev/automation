@@ -1,3 +1,4 @@
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
 import { Cause, Clock, DateTime, Effect, Layer, Redacted, Schema, Tracer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { SqlClient } from "effect/sql";
@@ -249,7 +250,7 @@ Object.defineProperty(Sandbox.prototype, "checkpoint", {
             shallow,
             commits: Number(commits),
             pristine: state === "pristine",
-            restoredSnapshotId: (yield* (yield* ContainerState).identity())?.restoredSnapshotId,
+            restoredSnapshotId: (yield* (yield* ContainerState).identity)?.restoredSnapshotId,
           };
         }).pipe(Effect.scoped),
       );
@@ -768,7 +769,10 @@ const Input = Schema.Struct({
   ),
 });
 const hostPorts = Layer.mergeAll(
-  Layer.succeed(RepairModel, { prepare: Effect.succeed, usage: () => Effect.succeed(undefined) }),
+  Layer.succeed(RepairModel, {
+    prepare: Effect.succeed,
+    usage: () => Effect.void.pipe(Effect.as(undefined)),
+  }),
   Layer.succeed(RepairPresentation, {
     retain: () => Effect.void,
     publicationContent: () => Effect.die("Publication is outside this fixture"),
@@ -911,13 +915,14 @@ export default {
                 const { requestFingerprint: _, ...legacy } = detail;
                 return legacy;
               }),
-              Effect.flatMap((detail) =>
-                detail === null || detail.requestFingerprint === undefined
-                  ? Effect.succeed(detail)
-                  : Effect.map(fingerprint(detail.requestFingerprint), (requestFingerprint) => ({
-                      ...detail,
-                      requestFingerprint,
-                    })),
+              Effect.flatMap(
+                Effect.fnUntraced(function* (detail) {
+                  if (detail === null || detail.requestFingerprint === undefined) return detail;
+                  return {
+                    ...detail,
+                    requestFingerprint: yield* fingerprint(detail.requestFingerprint),
+                  };
+                }),
               ),
             ),
           create: (value: SandboxTaskMachineCreate) =>
@@ -940,6 +945,7 @@ export default {
       }),
     ).pipe(Layer.provide(RepairSandboxTaskClientLive({ binding: "RUNS" })));
     const dependencies = Layer.mergeAll(
+      webCryptoLayer,
       hostPorts,
       database,
       authorization,
@@ -983,7 +989,7 @@ export default {
     const exit = await Effect.runPromiseExit(
       operation.pipe(
         Effect.provideService(RepairExecutionContext, input.launch.runId),
-        Effect.provide(dependencies),
+        Effect.provide(Layer.merge(dependencies, webCryptoLayer)),
         Effect.scoped,
       ),
     );

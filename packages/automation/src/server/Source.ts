@@ -149,16 +149,16 @@ export const readRepairSource = Effect.fn("RepairSource.read")(function* (input:
 
       return false;
     }).pipe(
-      Effect.catchCause((cause) =>
-        cause.reasons.length > 0 &&
-        cause.reasons.every(
-          (reason) =>
-            Cause.isFailReason(reason) &&
-            reason.error._tag === "ArtifactsOperationError" &&
-            reason.error.code === "NOT_FOUND",
-        )
-          ? Effect.succeed(true)
-          : Effect.failCause(cause),
+      Effect.catchCauseIf(
+        (cause) =>
+          cause.reasons.length > 0 &&
+          cause.reasons.every(
+            (reason) =>
+              Cause.isFailReason(reason) &&
+              reason.error._tag === "ArtifactsOperationError" &&
+              reason.error.code === "NOT_FOUND",
+          ),
+        () => Effect.succeed(true),
       ),
     ),
   );
@@ -223,13 +223,13 @@ export const prepareRepairSource = Effect.fn("RepairSource.prepare")(function* (
   const sourceFor = Effect.fn("RepairSource.sourceFor")(function* (commitSha: string) {
     const retained = yield* repository.readCommit(commitSha).pipe(
       Effect.as(true),
-      Effect.catchCause((cause) =>
-        cause.reasons.length > 0 &&
-        cause.reasons.every(
-          (reason) => Cause.isFailReason(reason) && reason.error.code === "NOT_FOUND",
-        )
-          ? Effect.succeed(false)
-          : Effect.failCause(cause),
+      Effect.catchCauseIf(
+        (cause) =>
+          cause.reasons.length > 0 &&
+          cause.reasons.every(
+            (reason) => Cause.isFailReason(reason) && reason.error.code === "NOT_FOUND",
+          ),
+        () => Effect.succeed(false),
       ),
     );
 

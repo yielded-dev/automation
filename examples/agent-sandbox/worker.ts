@@ -1,3 +1,4 @@
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
 import { Clock, Context, Effect, Layer, Redacted, Schema, Semaphore } from "effect";
 import { Artifacts, DurableObject, DurableObjectState, WorkerEnvironment } from "effect-cf";
 import {
@@ -45,8 +46,8 @@ const Source = Schema.Struct({
 const Accepted = Schema.Struct({
   instructions: CodingRequest.fields.instructions,
   source: Source,
-  startedAtMillis: Schema.Number,
-  deadlineAtMs: Schema.Number,
+  startedAtMillis: Schema.Finite,
+  deadlineAtMs: Schema.Finite,
 });
 class Gate extends Context.Service<Gate, Semaphore.Semaphore>()("example/CodingGate") {}
 const host = Layer.mergeAll(
@@ -80,7 +81,10 @@ const host = Layer.mergeAll(
     emit: (event) => Effect.sync(() => console.log("CODING_EVENT " + JSON.stringify(event))),
   }),
 );
-const services = sandboxAgentTurnLayer.pipe(Layer.provideMerge(host));
+const services = sandboxAgentTurnLayer.pipe(
+  Layer.provideMerge(host),
+  Layer.provideMerge(webCryptoLayer),
+);
 
 const code = Effect.fn("CodingSession.code")(function* (input: unknown) {
   const request = yield* Schema.decodeUnknownEffect(CodingRequest)(input);
@@ -98,7 +102,7 @@ const code = Effect.fn("CodingSession.code")(function* (input: unknown) {
         }
       : yield* Schema.decodeUnknownEffect(Accepted)(previous);
   if (accepted.instructions !== request.instructions)
-    return yield* new CodingError({
+    return yield* CodingError.make({
       message: "This task already has different accepted instructions",
     });
   if (previous === undefined) yield* state.storage.kv.put("accepted", accepted);

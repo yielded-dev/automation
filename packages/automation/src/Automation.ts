@@ -42,7 +42,7 @@ export const make = <
   const scope = JSON.stringify([options.name, options.scope]);
 
   const prepare = Effect.fnUntraced(function* (request: Input<Tag>) {
-    yield* Schema.decodeUnknownEffect(Schema.Array(DeduplicationInput.fields.id))([
+    yield* Schema.decodeEffect(Schema.Array(DeduplicationInput.fields.id))([
       options.name,
       options.scope,
       request.source,

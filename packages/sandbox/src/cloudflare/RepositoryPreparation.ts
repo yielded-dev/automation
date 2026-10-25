@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import {
   Context,
   DateTime,
@@ -227,7 +228,7 @@ const prepareRepository = Effect.fn("RepositoryPreparation.prepare")(function* (
     }
     execution = {
       request,
-      generation: yield* Effect.sync(() => crypto.randomUUID()),
+      generation: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
       completed: null,
     };
     yield* state.storage.put("repositoryPreparation", execution);

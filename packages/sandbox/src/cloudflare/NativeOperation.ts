@@ -97,14 +97,14 @@ const connect = Effect.fn("NativeOperation.connect")(
             nativeListener: true,
           })
           .pipe(
-            Effect.map(Option.some),
-            Effect.catchCause((cause) =>
-              expectedTransportFailure(cause)
-                ? Effect.logWarning(
-                    "Native gateway bootstrap acknowledgement was lost",
-                    sanitizeCause(cause, { operation: "NativeOperation.bootstrap" }),
-                  ).pipe(Effect.as(Option.none<SandboxProcessHandle>()))
-                : Effect.failCause(cause),
+            Effect.asSome,
+            Effect.catchCauseIf(
+              (cause) => expectedTransportFailure(cause),
+              (cause) =>
+                Effect.logWarning(
+                  "Native gateway bootstrap acknowledgement was lost",
+                  sanitizeCause(cause, { operation: "NativeOperation.bootstrap" }),
+                ).pipe(Effect.as(Option.none<SandboxProcessHandle>())),
             ),
           );
       }
@@ -116,13 +116,13 @@ const connect = Effect.fn("NativeOperation.connect")(
       // normal bootstrap does not throw through the host's HTTP reporting boundary.
       const response = yield* listener.value.waitForPort(operation.port, { timeout: 10_000 }).pipe(
         Effect.andThen(sandbox.forwardPort(operation.port, nativeOperationRequest(operation))),
-        Effect.catchCause((cause) =>
-          expectedTransportFailure(cause)
-            ? Effect.logWarning(
-                "Native gateway connection failed",
-                sanitizeCause(cause, { operation: "NativeOperation.forwardPort" }),
-              ).pipe(Effect.as(null))
-            : Effect.failCause(cause),
+        Effect.catchCauseIf(
+          (cause) => expectedTransportFailure(cause),
+          (cause) =>
+            Effect.logWarning(
+              "Native gateway connection failed",
+              sanitizeCause(cause, { operation: "NativeOperation.forwardPort" }),
+            ).pipe(Effect.as(null)),
         ),
       );
 
@@ -340,16 +340,14 @@ export const acknowledgeNativeOperation = Effect.fn("NativeOperation.acknowledge
   operation: NativeOperationIdentity,
 ) {
   const sandbox = yield* SessionSandbox;
-  const process = yield* sandbox
-    .getProcess(operation.id)
-    .pipe(
-      Effect.catchCause((cause) =>
+  const process = yield* sandbox.getProcess(operation.id).pipe(
+    Effect.catchCauseIf(
+      (cause) =>
         cause.reasons.length > 0 &&
-        cause.reasons.every((reason) => Cause.isFailReason(reason) && retiredProcess(reason.error))
-          ? Effect.succeed(Option.none())
-          : Effect.failCause(cause),
-      ),
-    );
+        cause.reasons.every((reason) => Cause.isFailReason(reason) && retiredProcess(reason.error)),
+      () => Effect.succeedNone,
+    ),
+  );
 
   if (Option.isSome(process)) yield* process.value.waitForExit({ timeout: 10_000 });
   if (yield* existingListenerCall(operation, "gateway/acknowledge")) return;

@@ -120,7 +120,7 @@ const continuationFor = Effect.fnUntraced(function* (request: SandboxTaskMachine
   const outcome = yield* objects
     .byName(repairSandboxTaskObjectName(request.continuation.previousTaskId))
     .continuation(request);
-  if (outcome._tag !== "Success") return yield* Effect.fail(outcome);
+  if (outcome._tag !== "Success") return yield* outcome;
   return outcome.value;
 });
 

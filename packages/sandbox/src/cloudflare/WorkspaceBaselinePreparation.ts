@@ -43,8 +43,7 @@ export class WorkspaceBaselinePreparationError extends Data.TaggedError(
 }> {}
 
 const isTerminalPreparationError = Schema.is(
-  Schema.Struct({
-    _tag: Schema.Literal("WorkspaceBaselinePreparationError"),
+  Schema.TaggedStruct("WorkspaceBaselinePreparationError", {
     reason: Schema.Literals([
       "publication-conflict",
       "workspace-lost",

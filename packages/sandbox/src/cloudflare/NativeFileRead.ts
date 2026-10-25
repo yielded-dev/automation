@@ -27,7 +27,7 @@ try {
 export const makeReadFile =
   (container: Pick<Container, "exec">) =>
   async (path: string, signal?: AbortSignal): Promise<Response> => {
-    Schema.decodeUnknownSync(Path)(path);
+    Schema.decodeSync(Path)(path);
     signal?.throwIfAborted();
     const execution = new AbortController();
     let exited = false;
@@ -59,7 +59,7 @@ export const makeReadFile =
       ([stderr, code]) => {
         if (code === 0) return;
         if (!stderr) throw new Error(`File reader exited with code ${code}`);
-        const failure = Schema.decodeUnknownSync(Failure)(stderr);
+        const failure = Schema.decodeSync(Failure)(stderr);
         const errorCode: SandboxFileError["code"] = /^E[A-Z0-9]+$/.test(failure.code)
           ? `E${failure.code.slice(1)}`
           : "UNKNOWN";

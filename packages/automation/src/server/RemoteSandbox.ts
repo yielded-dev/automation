@@ -1,4 +1,5 @@
-import { Cause, Clock, Effect, Option, Schema } from "effect";
+import * as Crypto from "effect/Crypto";
+import { Cause, Clock, Effect, Option, Schema, Semaphore } from "effect";
 
 import {
   NativeContainerIdentity,
@@ -37,6 +38,7 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
   start: EnsureOptions = {},
 ) {
   const client = yield* RepairSandboxTaskClient;
+  const crypto = yield* Crypto.Crypto;
   const convert = <A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, SandboxOperationError, R> =>
@@ -53,22 +55,36 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
   const call = <A, I>(
     action: SandboxTaskNativeRequest["action"],
     schema: Schema.Codec<A, I>,
-    operationId = crypto.randomUUID(),
-  ) =>
-    convert(
-      client.native(
-        taskId,
-        {
-          purpose,
-          operationId,
-          action,
-          ...(start.expectedInstanceId === undefined
-            ? {}
-            : { expectedInstanceId: start.expectedInstanceId }),
-        },
-        schema,
-      ),
-    );
+    operationId?: string,
+  ) => {
+    // One constructed request keeps its receipt identity across retries and reuse.
+    let acceptedId = operationId;
+    const identityLock = Semaphore.makeUnsafe(1);
+    return Effect.gen(function* () {
+      const id = yield* Semaphore.withPermit(
+        identityLock,
+        Effect.gen(function* () {
+          if (acceptedId === undefined)
+            acceptedId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+          return acceptedId;
+        }),
+      );
+      return yield* convert(
+        client.native(
+          taskId,
+          {
+            purpose,
+            operationId: id,
+            action,
+            ...(start.expectedInstanceId === undefined
+              ? {}
+              : { expectedInstanceId: start.expectedInstanceId }),
+          },
+          schema,
+        ),
+      );
+    });
+  };
   const voidCall = (action: SandboxTaskNativeRequest["action"]) =>
     call(action, Schema.Null).pipe(Effect.asVoid);
   const ensure: NativeSandbox["ensure"] = (options = {}) =>
@@ -80,16 +96,16 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
         : { _tag: "WaitProcess", processId: id, waitMillis, maxBytes },
       Schema.NullOr(ProcessStatus),
     ).pipe(
-      Effect.flatMap((status) =>
-        status === null
-          ? Effect.fail(
-              new SandboxOperationError({
-                operation: "process",
-                code: "ENOENT",
-                cause: "Process receipt is absent",
-              }),
-            )
-          : Effect.succeed(status),
+      Effect.filterOrElse(
+        (status) => !(status === null),
+        () =>
+          Effect.fail(
+            new SandboxOperationError({
+              operation: "process",
+              code: "ENOENT",
+              cause: "Process receipt is absent",
+            }),
+          ),
       ),
     );
   const process = (id: string): SandboxProcessHandle => ({
@@ -165,8 +181,8 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
           code: "ESTALE",
           cause: "The native incarnation is unavailable",
         });
-      const nativeToken = crypto.randomUUID();
-      const operationId = crypto.randomUUID();
+      const nativeToken = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+      const operationId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
 
       yield* call(
         { _tag: "PrepareFile", path, access, nativeToken, expectedInstanceId: owner.instanceId },
@@ -297,7 +313,7 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
           { _tag: "ReadFileString", path: MATERIALIZATION_MARKER },
           Schema.String,
         );
-        const operationId = crypto.randomUUID();
+        const operationId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
 
         yield* call(
           {

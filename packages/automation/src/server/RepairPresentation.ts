@@ -36,9 +36,10 @@ export class RepairPresentation extends Context.Service<
       RepairHostError | ConflictError,
       SessionSandbox | RepairExecutionContext
     >;
+    /** The supplied state identifies this publication; adapters need no ambient run context. */
     readonly publicationContent: (
       state: RunState,
       request: RepairPublicationRequest,
-    ) => Effect.Effect<PublicationContent, RepairHostError | ConflictError, RepairExecutionContext>;
+    ) => Effect.Effect<PublicationContent, RepairHostError | ConflictError>;
   }
 >()("@reve/repairs/RepairPresentation") {}

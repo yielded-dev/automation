@@ -1,4 +1,5 @@
-import { Cause, DateTime, Effect, Layer, Option, Redacted, Schema } from "effect";
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
+import { Cause, DateTime, Effect, Layer, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { PgClient } from "@effect/sql-pg";
 import { ConflictError, ServiceUnavailableError } from "@yielded/automation/domain/errors";
@@ -122,6 +123,7 @@ export default {
       maxConnections: 1,
     });
     const dependencies = Layer.mergeAll(
+      webCryptoLayer,
       database,
       RepairExecutionRepository.layer.pipe(Layer.provide(database)),
       Layer.succeed(RunConfig, {
@@ -151,19 +153,17 @@ export default {
                   Cause.makeInterruptReason(42),
                 ]),
               )
-            : Effect.succeed(
-                Option.some({
-                  id: input.fault === "installation" ? 2 : 1,
-                  account: { login: "fixture", type: "Organization" as const },
-                  permissions: { contents: "write", pull_requests: "write" },
-                  suspended_at: null,
-                }),
-              ),
+            : Effect.succeedSome({
+                id: input.fault === "installation" ? 2 : 1,
+                account: { login: "fixture", type: "Organization" as const },
+                permissions: { contents: "write", pull_requests: "write" },
+                suspended_at: null,
+              }),
         repositoryWriteToken: () => Effect.succeed(Redacted.make("synthetic")),
         botCommitter: () =>
           Effect.succeed({ accountId: "1", name: "fixture[bot]", email: "fixture@example.com" }),
       }),
-      Layer.mock(RepairModel, { usage: () => Effect.succeed(undefined) }),
+      Layer.mock(RepairModel, { usage: () => Effect.void.pipe(Effect.as(undefined)) }),
       Layer.mock(RepairPresentation, {
         publicationContent: () => Effect.succeed(publicationContent),
       }),

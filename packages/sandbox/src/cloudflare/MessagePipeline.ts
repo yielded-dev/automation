@@ -1,3 +1,4 @@
+import * as Crypto from "effect/Crypto";
 import {
   Cause,
   Clock,
@@ -499,17 +500,15 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           commitSha: seed.commitSha,
           ...(seed.artifactsRef === undefined ? {} : { artifactsRef: seed.artifactsRef }),
         };
+  const readSourceGeneration = Effect.gen(function* () {
+    const generation = yield* checkout.sourceGeneration(
+      yield* requireRepositorySeed(seedRepository),
+    );
+    return { ...generation, commitSha: yield* checkout.readGenerationMainHead(generation) };
+  });
   const source =
     seeded && (storedForkIntent !== null || !hadFork)
-      ? (admittedSource ??
-        storedForkIntent?.source ??
-        (yield* Effect.gen(function* () {
-          const generation = yield* checkout.sourceGeneration(
-            yield* requireRepositorySeed(seedRepository),
-          );
-
-          return { ...generation, commitSha: yield* checkout.readGenerationMainHead(generation) };
-        })))
+      ? (admittedSource ?? storedForkIntent?.source ?? (yield* readSourceGeneration))
       : admittedSource;
   const plannedSource = seeded && (storedForkIntent !== null || !hadFork) ? source : undefined;
   // Retain source authority before dispatch. Start its remote work immediately
@@ -688,16 +687,17 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           ? "workspace-checkpoint-lookup"
           : "workspace-checkpoint-compatible-lookup",
       ),
-      Effect.catchCause((cause) =>
-        cause.reasons.every(
-          (reason) =>
-            Cause.isFailReason(reason) &&
-            Predicate.isTagged(reason.error, "WorkspaceBaselineError"),
-        )
-          ? reportSanitizedCause(cause, { operation: "MessagePipeline.baselineLookup" }).pipe(
-              Effect.as(null),
-            )
-          : Effect.failCause(cause),
+      Effect.catchCauseIf(
+        (cause) =>
+          cause.reasons.every(
+            (reason) =>
+              Cause.isFailReason(reason) &&
+              Predicate.isTagged(reason.error, "WorkspaceBaselineError"),
+          ),
+        (cause) =>
+          reportSanitizedCause(cause, { operation: "MessagePipeline.baselineLookup" }).pipe(
+            Effect.as(null),
+          ),
       ),
     );
 
@@ -761,13 +761,13 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
       Effect.gen(function* () {
         const marker = yield* restoredSandbox.readFileString(MATERIALIZATION_MARKER).pipe(
           Effect.map((content) => content.trim()),
-          Effect.catchCause((cause) =>
-            cause.reasons.length > 0 &&
-            cause.reasons.every(
-              (reason) => Cause.isFailReason(reason) && isSandboxFileMissing(reason.error),
-            )
-              ? Effect.succeed(null)
-              : Effect.failCause(cause),
+          Effect.catchCauseIf(
+            (cause) =>
+              cause.reasons.length > 0 &&
+              cause.reasons.every(
+                (reason) => Cause.isFailReason(reason) && isSandboxFileMissing(reason.error),
+              ),
+            () => Effect.succeed(null),
           ),
         );
 
@@ -932,14 +932,15 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
         selected.checkpoint.snapshotId,
       )
       .pipe(
-        Effect.catchCause((cause) =>
-          cause.reasons.every(
-            (reason) =>
-              Cause.isFailReason(reason) &&
-              Predicate.isTagged(reason.error, "WorkspaceBaselineError"),
-          )
-            ? reportSanitizedCause(cause, { operation: "MessagePipeline.baselineInvalidation" })
-            : Effect.failCause(cause),
+        Effect.catchCauseIf(
+          (cause) =>
+            cause.reasons.every(
+              (reason) =>
+                Cause.isFailReason(reason) &&
+                Predicate.isTagged(reason.error, "WorkspaceBaselineError"),
+            ),
+          (cause) =>
+            reportSanitizedCause(cause, { operation: "MessagePipeline.baselineInvalidation" }),
         ),
       );
   }
@@ -1039,7 +1040,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
             ensured?.disposition === "existing" || hadFork || storedMaterialization !== null;
         }
         yield* mark("cloneComplete");
-        const materializationId = crypto.randomUUID();
+        const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
 
         yield* sandbox
           .writeFile(MATERIALIZATION_MARKER, materializationId)
@@ -1129,7 +1130,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           yield* store.verifiedHead.put(sourceHead!);
         }
         yield* mark("cloneComplete");
-        const materializationId = crypto.randomUUID();
+        const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
 
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, materializationId);
         yield* store.materializationId.put(materializationId);
@@ -1206,7 +1207,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           yield* mark("cloneComplete");
           harnessVersion = null;
           yield* store.verifiedHead.put(sourceHead);
-          const materializationId = crypto.randomUUID();
+          const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
 
           yield* sandbox
             .writeFile(MATERIALIZATION_MARKER, materializationId)
@@ -1386,14 +1387,14 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
         Effect.flatMap((checkpoint) =>
           checkpoint === null ? Effect.void : store.workspaceCheckpoint.put(checkpoint),
         ),
-        Effect.catchCause((cause) =>
-          cause.reasons.every(
-            (reason) =>
-              Cause.isFailReason(reason) &&
-              Predicate.isTagged(reason.error, "SandboxOperationError"),
-          )
-            ? reportSanitizedCause(cause, { operation: "MessagePipeline.siteCapture" })
-            : Effect.failCause(cause),
+        Effect.catchCauseIf(
+          (cause) =>
+            cause.reasons.every(
+              (reason) =>
+                Cause.isFailReason(reason) &&
+                Predicate.isTagged(reason.error, "SandboxOperationError"),
+            ),
+          (cause) => reportSanitizedCause(cause, { operation: "MessagePipeline.siteCapture" }),
         ),
       );
     }

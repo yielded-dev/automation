@@ -475,15 +475,15 @@ export const makeNativeSandbox = Effect.fnUntraced(function* (
   const handle = (initial: ProcessStatus): SandboxProcessHandle => {
     let terminal: ProcessStatus | undefined;
     const status = observe(initial.id).pipe(
-      Effect.flatMap((value) =>
-        value === null
-          ? Effect.fail(
-              new SandboxOperationError({
-                operation: "process",
-                cause: new Error("Process receipt is missing"),
-              }),
-            )
-          : Effect.succeed(value),
+      Effect.filterOrElse(
+        (value) => !(value === null),
+        () =>
+          Effect.fail(
+            new SandboxOperationError({
+              operation: "process",
+              cause: new Error("Process receipt is missing"),
+            }),
+          ),
       ),
     );
     const wait = Effect.fnUntraced(function* (timeout: number, maxBytes: number) {

@@ -473,8 +473,9 @@ it("serializes simultaneous exact identities and preserves immutable input/evide
       const sql = (yield* SqlClient.SqlClient).withoutTransforms();
       const first = input(randomUUID(), "first", "same-source");
       const second = input(first.scope, "second", first.sourceId);
-      const decisions = yield* Effect.all(
-        [first, second].map((incoming) => repository.accept(incoming, "0", distinct)),
+      const decisions = yield* Effect.forEach(
+        [first, second],
+        (incoming) => repository.accept(incoming, "0", distinct),
         { concurrency: "unbounded" },
       );
       expect(decisions.filter((decision) => decision._tag === "Distinct")).toHaveLength(1);

@@ -4,7 +4,7 @@ import { WorkerEnvironment } from "effect-cf";
 import { CodexHarnessLive } from "../harness/CodexHarness";
 import { Harness } from "../harness/Harness";
 import { ArtifactsCheckout } from "./ArtifactsCheckout";
-import { SandboxAgentArtifacts, Sandboxes } from "./Bindings";
+import { SandboxAgentArtifacts, Sandboxes, webCryptoLayer } from "./Bindings";
 import { SandboxAgentConfig } from "./Config";
 import { SessionRunSink } from "./RunSink";
 import { SessionStateStore } from "./SessionStateStore";
@@ -66,7 +66,7 @@ export const repositoryWorkspaceLayer = Layer.mergeAll(
   Layer.effect(Sandboxes, Sandboxes),
   Layer.effect(WorkspaceBaselineRepository, WorkspaceBaselineRepository),
   Layer.effect(RepositoryInstallAuthorization, RepositoryInstallAuthorization),
-);
+).pipe(Layer.provideMerge(webCryptoLayer));
 
 /** Generation-bound source support is acquired only by owners that require it. */
 export const sandboxWorkspaceLayer = RepositorySourceCheckout.layer.pipe(
@@ -81,6 +81,7 @@ export const sandboxAgentTurnLayer = Layer.mergeAll(
 
 const workspaceBindingsLayer = <ConfigFailure>(options: SandboxWorkspaceOptions<ConfigFailure>) =>
   Layer.mergeAll(
+    webCryptoLayer,
     options.configLayer,
     SandboxAgentArtifacts.layer({ binding: options.bindings.artifacts }),
     Sandboxes.layer({ binding: options.bindings.sandbox }),
@@ -129,7 +130,10 @@ export const makeSandboxAgentTurnLayer = <
   Layer.mergeAll(
     Layer.suspend(() => Layer.fresh(sandboxAgentTurnLayer)).pipe(
       Layer.provide(
-        Layer.mergeAll(workspaceBindingsLayer(options), options.harnessLayer ?? CodexHarnessLive),
+        Layer.mergeAll(
+          workspaceBindingsLayer(options),
+          options.harnessLayer ?? CodexHarnessLive.pipe(Layer.provide(webCryptoLayer)),
+        ),
       ),
     ),
     options.runSinkLayer ?? SessionRunSink.noopLayer,

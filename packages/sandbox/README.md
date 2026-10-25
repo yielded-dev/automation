@@ -34,6 +34,12 @@ import { sandboxWorkspaceLayer } from "@yielded/sandbox/cloudflare";
 const WorkspaceLive = sandboxWorkspaceLayer.pipe(Layer.provideMerge(HostWorkspaceLive));
 ```
 
+The workspace layers expose `Crypto.Crypto` for downstream operations. Direct
+compositions of `CodexHarnessLive` or `RepositoryGitPackSandboxLive` must supply
+that service explicitly. Cloudflare hosts can use `webCryptoLayer` from
+`@yielded/sandbox/cloudflare/Bindings`; `makeSandboxAgentTurnLayer` supplies it
+to the default Codex harness.
+
 `runTurn(request)` takes accepted task data: the session and turn identity,
 instructions, source and original deadline. Its Effect requirements expose the
 workspace, `Harness`, `AgentEventSink` and execution state. A host can supply the

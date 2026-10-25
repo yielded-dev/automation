@@ -185,7 +185,7 @@ const make = <Environment extends Cloudflare.Env, EventServices, EventError>(
               Schema.decodeUnknownEffect(schema)(value),
         ),
       );
-    const identity = () => read("container-identity", Identity);
+    const identity = read("container-identity", Identity);
 
     return {
       read,

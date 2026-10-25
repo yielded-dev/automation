@@ -1,3 +1,5 @@
+import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
+import * as Crypto from "effect/Crypto";
 import { Cause, Effect, Layer, Schema, Tracer } from "effect";
 import { DurableObject, DurableObjectState } from "effect-cf";
 import {
@@ -173,6 +175,7 @@ for (const method of [
 export const SandboxOutbound = makeSandboxAgentOutbound(options);
 
 const fixtureLayer = Layer.mergeAll(
+  webCryptoLayer,
   SessionStateStore.layer,
   WorkspaceServiceCoordinator.layer,
   RepositoryInstallAuthorization.emptyLayer,
@@ -318,7 +321,7 @@ const prepare = Effect.fn("ReadinessFixture.prepare")(
         yield* command(
           "git init --initial-branch main >/dev/null && git config user.name Fixture && git config user.email fixture@example.invalid && git add . && GIT_AUTHOR_DATE=2026-10-01T00:00:00Z GIT_COMMITTER_DATE=2026-10-01T00:00:00Z git commit -qm fixture",
         );
-        const marker = crypto.randomUUID();
+        const marker = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, marker);
         yield* store.materializationId.put(marker);
       } else if (baseline !== undefined) {

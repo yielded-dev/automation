@@ -32,7 +32,7 @@ export interface GithubAppRegistration {
 export const exchangeGithubAppManifest = Effect.fn("Github.exchangeAppManifest")(function* (
   code: Redacted.Redacted<string>,
 ): Effect.fn.Return<GithubAppRegistration, GithubRegistrationError, HttpClient.HttpClient> {
-  const acceptedCode = yield* Schema.decodeUnknownEffect(
+  const acceptedCode = yield* Schema.decodeEffect(
     Schema.String.check(Schema.isPattern(/^[a-zA-Z0-9_-]{1,256}$/)),
   )(Redacted.value(code)).pipe(
     Effect.catchCause((cause) =>

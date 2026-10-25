@@ -56,7 +56,7 @@ const make = Effect.gen(function* () {
     if (row === undefined) return undefined;
     if (row.source_id !== input.sourceId)
       return yield* DeduplicationError.make({ reason: "store", cause: "Input source changed" });
-    return yield* Schema.decodeUnknownEffect(DecisionJson)(row.decision);
+    return yield* Schema.decodeEffect(DecisionJson)(row.decision);
   }, storeErrors);
 
   const load = Effect.fn("DeduplicationRepository.load")(function* (input: DeduplicationInput) {
@@ -130,7 +130,7 @@ const make = Effect.gen(function* () {
         END AS root FROM known`;
     const row = yield* Schema.decodeUnknownEffect(AcceptanceRow)(rows[0]);
     if (row.retained !== null) {
-      const retained = yield* Schema.decodeUnknownEffect(StoredInputJson)(row.retained);
+      const retained = yield* Schema.decodeEffect(StoredInputJson)(row.retained);
       if (retained.sourceId !== input.sourceId)
         return yield* DeduplicationError.make({ reason: "store", cause: "Input source changed" });
       return retained.decision;
@@ -138,7 +138,7 @@ const make = Effect.gen(function* () {
 
     let decision = proposed;
     if (row.identity !== null) {
-      const identity = yield* Schema.decodeUnknownEffect(StoredInputJson)(row.identity);
+      const identity = yield* Schema.decodeEffect(StoredInputJson)(row.identity);
       decision = {
         _tag: "Duplicate",
         canonicalId: canonicalId(identity),
@@ -152,7 +152,7 @@ const make = Effect.gen(function* () {
       if (
         decision.canonicalId === input.id ||
         row.root === null ||
-        (yield* Schema.decodeUnknownEffect(DecisionJson)(row.root))._tag !== "Distinct"
+        (yield* Schema.decodeEffect(DecisionJson)(row.root))._tag !== "Distinct"
       )
         return yield* DeduplicationError.make({ reason: "invalid_decision" });
     }
