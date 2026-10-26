@@ -162,6 +162,17 @@ export const RepairVerification = Schema.Struct({
 });
 export type RepairVerification = typeof RepairVerification.Type;
 
+/** Detects a reported fix with before/after observations, not independently verified success. */
+export const hasRepairVerification = (report: {
+  readonly verification?: RepairVerification | null;
+}) => {
+  const verification = report.verification;
+
+  return (
+    verification?.status === "fixed" && verification.before !== null && verification.after !== null
+  );
+};
+
 /** A final handoff is bound to the saved checkout; detailed notes stay in private tool storage. */
 export const RepairReport = Schema.Struct({
   candidateSha: Schema.String.check(Schema.isPattern(/^[a-f0-9]{40}$/)),

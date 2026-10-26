@@ -127,6 +127,16 @@ correction, retained evidence, citation validation and structured reporting.
 Supply a Toolkit, a finding schema and product instructions. It does not need a
 Sandbox, database driver or application imports.
 
+Use `FindingReport` from `@yielded/automation/domain/FindingReport` for a short
+explanation with supporting facts, a specific evidence gap and a next step.
+Private readers can use `privateEvidencePage` from
+`@yielded/automation/domain/DiagnosticContent` to page retained JSON after
+credential redaction, with explicit omission and truncation flags. Hosts still
+authorize each read; this content is unsuitable for logs or public output.
+`hasRepairVerification` in `domain/RepairReport` detects a reported fix with
+before/after observations. It does not independently verify the fix or authorize
+publication.
+
 ```ts
 import { Exit, Schema } from "effect";
 import { Tool, Toolkit } from "effect/ai";
