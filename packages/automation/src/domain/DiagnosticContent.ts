@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Array, Schema } from "effect";
 
 export const DiagnosticContentQuery = {
   offset: Schema.optionalKey(Schema.Natural),
@@ -15,13 +15,17 @@ export const DiagnosticContentPage = Schema.Struct({
   truncated: Schema.Boolean,
 });
 
+const fieldName = (key: string) => key.replace(/[^a-z]/gi, "").toLowerCase();
+const credentialField =
+  /authorization|cookie|password|secret|apikey|accesstoken|refreshtoken|idtoken|privatekey|credential|^token$/;
+
 /** For authorized private readers. Retains user content; unsuitable for logs or public output. */
 export const redactPrivateText = (value: string) =>
   value
     .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[REDACTED]@")
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9_+/=.-]+/gi, "$1 [REDACTED]")
     .replace(
-      /(["'](?:authorization|api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret|cookie|set-cookie)["']\s*:\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/gi,
+      /(["'](?:[^"'\r\n]*(?:authorization|cookie|password|secret|api[_-]?key|(?:access|refresh|id)[_-]?token|private[_-]?key|credential)[^"'\r\n]*|token)["']\s*:\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/gi,
       '$1"[REDACTED]"',
     )
     .replace(
@@ -29,7 +33,7 @@ export const redactPrivateText = (value: string) =>
       "$1[REDACTED]",
     )
     .replace(
-      /\b((?:api[_-]?key|access[_-]?token|refresh[_-]?token|password|secret)\s*[=:]\s*)[^\s,;]+/gi,
+      /\b((?:api[_-]?key|(?:access|refresh|id)[_-]?token|token|password|secret|private[_-]?key|credentials?)\s*[=:]\s*)[^\s,;]+/gi,
       "$1[REDACTED]",
     )
     .replace(
@@ -69,7 +73,7 @@ export const privateEvidencePage = (
 
       return text;
     }
-    if (Array.isArray(input)) {
+    if (Array.isArray<Schema.Json>(input)) {
       const result: Schema.Json[] = [];
 
       for (const entry of input) {
@@ -92,30 +96,41 @@ export const privateEvidencePage = (
 
       return { type: input.type, omitted: true };
     }
-    const result: Array<[string, Schema.Json]> = [];
+    const result = new Map<string, Schema.Json>();
+    let renamed = 0;
 
-    for (const [key, entry] of Object.entries(input)) {
+    for (const key in input) {
+      if (!Object.hasOwn(input, key)) continue;
       if (nodes <= 0 || characters <= 0) {
         truncated = true;
         break;
       }
-      const field = key.replace(/[^a-z]/gi, "").toLowerCase();
+      const redacted = redactPrivateText(key);
 
-      if (
-        /authorization|cookie|password|secret|apikey|accesstoken|refreshtoken|idtoken|privatekey|credential/.test(
-          field,
-        ) ||
-        field === "token"
-      ) {
+      if (redacted !== key) omitted.add("credentials");
+      let name = redacted;
+
+      while (result.has(name)) name = `${redacted} (${++renamed})`;
+      if (name.length > characters) {
+        truncated = true;
+        break;
+      }
+      characters -= name.length;
+      const field = fieldName(key);
+      let entry = input[key];
+
+      if (entry === undefined) continue;
+      if (credentialField.test(field)) {
         omitted.add("credentials");
-        result.push([key, "[REDACTED]"]);
+        entry = "[REDACTED]";
       } else if (
         field === "encryptedcontent" ||
         /^(?:imagedata|images?|attachments?|screenshots?)$/u.test(field)
       ) {
         omitted.add(field === "encryptedcontent" ? "reasoning" : "image_bytes");
-        result.push([key, "[OMITTED]"]);
-      } else result.push([key, visit(entry, depth + 1)]);
+        entry = "[OMITTED]";
+      }
+      result.set(name, visit(entry, depth + 1));
     }
 
     return Object.fromEntries(result);

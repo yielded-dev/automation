@@ -3,6 +3,52 @@ import { describe, expect, it } from "vite-plus/test";
 import { privateEvidencePage } from "../../src/domain/DiagnosticContent";
 
 describe("complete private diagnostic evidence", () => {
+  it("redacts credential-bearing keys without losing their separate evidence", () => {
+    const page = privateEvidencePage(
+      {
+        "https://example.test/request?token=first-canary": "first failure",
+        "https://example.test/request?token=second-canary": "second failure",
+      },
+      {},
+    );
+
+    expect(page.content).not.toContain("canary");
+    expect(Object.values(JSON.parse(page.content))).toEqual(["first failure", "second failure"]);
+    expect(page.omitted).toContain("credentials");
+  });
+
+  it("redacts the same credential fields in structured and serialized payloads", () => {
+    const credentials = {
+      token: "token-canary",
+      id_token: "id-canary",
+      private_key: "key-canary",
+      client_secret: "secret-canary",
+      credentials: "credentials-canary",
+    };
+
+    const page = privateEvidencePage(
+      {
+        credentials,
+        message: JSON.stringify(credentials),
+        raw: "id_token=raw-canary",
+        nested: JSON.stringify({ message: "{'password': 'nested-canary'}" }),
+      },
+      {},
+    );
+
+    expect(page.content).not.toContain("canary");
+    expect(page.omitted).toContain("credentials");
+  });
+
+  it("counts redacted fields toward the traversal limit", () => {
+    const page = privateEvidencePage(
+      Object.fromEntries(Array.from({ length: 200_001 }, (_, index) => [`secret${index}`, "x"])),
+      {},
+    );
+
+    expect(page.truncated).toBe(true);
+  });
+
   it("recovers long original prompts and tool results beyond the history preview", () => {
     const prompt = "Preserve this original instruction. ".repeat(900);
 
