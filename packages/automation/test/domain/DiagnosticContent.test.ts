@@ -36,11 +36,19 @@ describe("complete private diagnostic evidence", () => {
         nested: JSON.stringify({ message: "{'password': 'nested-canary'}" }),
         unterminated: "{'password': 'unterminated-canary",
         singleQuoted: "'user\"s_password': 'single-quote-canary'",
+        keyed: [
+          JSON.stringify({ "'password': 'key-canary'": "failed" }),
+          JSON.stringify({ "'token': 'token-key-canary'": "failed" }),
+          "'\"password\": \"double-key-canary\"': 'failed'",
+        ],
       },
       {},
     );
 
     expect(page.content).not.toContain("canary");
+    expect(JSON.parse(JSON.parse(page.content).keyed[1])).toEqual({
+      "'token': '[REDACTED]'": "failed",
+    });
     expect(page.omitted).toContain("credentials");
   });
 

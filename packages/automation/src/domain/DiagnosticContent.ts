@@ -19,7 +19,7 @@ const fieldName = (key: string) => key.replace(/[^a-z]/gi, "").toLowerCase();
 const credentialField =
   /authorization|cookie|password|secret|apikey|accesstoken|refreshtoken|idtoken|privatekey|credential|^token$/;
 
-const redactQuotedFields = (value: string) => {
+const redactQuotedFields = (value: string): string => {
   const fields = /"([^"\r\n]+)"\s*:\s*(?=["'])|'([^'\r\n]+)'\s*:\s*(?=["'])/g;
   const quoted = /(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/y;
   let result = "";
@@ -28,11 +28,26 @@ const redactQuotedFields = (value: string) => {
   for (let match = fields.exec(value); match !== null; match = fields.exec(value)) {
     const key = match[1] ?? match[2];
 
-    if (key === undefined || !credentialField.test(fieldName(key))) continue;
+    if (key === undefined) continue;
+    // Each key excludes its delimiter, so scanning inside keys adds at most one quote level.
+    const safeKey = redactQuotedFields(key);
+    const sensitive = credentialField.test(fieldName(key));
+
+    if (safeKey === key && !sensitive) continue;
+    const keyStart = match.index + 1;
+
+    result +=
+      value.slice(offset, keyStart) +
+      safeKey +
+      value.slice(keyStart + key.length, fields.lastIndex);
+    offset = fields.lastIndex;
+    if (!sensitive) continue;
+    const quote = value.charAt(fields.lastIndex);
+
     quoted.lastIndex = fields.lastIndex;
     const content = quoted.exec(value);
 
-    result += `${value.slice(offset, fields.lastIndex)}"[REDACTED]"`;
+    result += `${quote}[REDACTED]${quote}`;
     // An unterminated credential consumes the remaining text; do not repeatedly rescan it.
     if (content === null) return result;
     offset = quoted.lastIndex;
