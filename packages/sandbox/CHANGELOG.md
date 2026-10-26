@@ -1,5 +1,11 @@
 # @yielded/sandbox
 
+## 0.8.0
+
+### Minor Changes
+
+- [#32](https://github.com/yielded-dev/automation/pull/32) [`e39ffa6`](https://github.com/yielded-dev/automation/commit/e39ffa628dbee32068a4647c8720221e775cda86) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Apply the shared Effect checking policy. GitHub App token, installation URL and bot login operations, and container identity reads, are now reusable Effects instead of zero-argument functions. Publication-content adapters use the supplied run state instead of an ambient execution context. Supply Crypto at custom composition roots; Cloudflare factories provide Web Crypto. Reject non-finite persisted deadlines and start times, and preserve selective failure recovery and scoped cleanup.
+
 ## 0.7.0
 
 No changes in this release.
