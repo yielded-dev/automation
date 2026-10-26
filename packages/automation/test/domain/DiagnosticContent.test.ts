@@ -23,6 +23,7 @@ describe("complete private diagnostic evidence", () => {
       id_token: "id-canary",
       private_key: "key-canary",
       client_secret: "secret-canary",
+      "client\\secret": "escaped-key-canary",
       credentials: "credentials-canary",
     };
 
@@ -32,6 +33,7 @@ describe("complete private diagnostic evidence", () => {
         message: JSON.stringify(credentials),
         raw: "id_token=raw-canary",
         nested: JSON.stringify({ message: "{'password': 'nested-canary'}" }),
+        unterminated: "{'password': 'unterminated-canary",
       },
       {},
     );

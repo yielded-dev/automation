@@ -19,15 +19,34 @@ const fieldName = (key: string) => key.replace(/[^a-z]/gi, "").toLowerCase();
 const credentialField =
   /authorization|cookie|password|secret|apikey|accesstoken|refreshtoken|idtoken|privatekey|credential|^token$/;
 
+const redactQuotedFields = (value: string) => {
+  const fields = /(["'])([^"'\r\n]+)\1\s*:\s*(?=["'])/g;
+  const quoted = /(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/y;
+  let result = "";
+  let offset = 0;
+
+  for (let match = fields.exec(value); match !== null; match = fields.exec(value)) {
+    const key = match[2];
+
+    if (key === undefined || !credentialField.test(fieldName(key))) continue;
+    quoted.lastIndex = fields.lastIndex;
+    const content = quoted.exec(value);
+
+    result += `${value.slice(offset, fields.lastIndex)}"[REDACTED]"`;
+    // An unterminated credential consumes the remaining text; do not repeatedly rescan it.
+    if (content === null) return result;
+    offset = quoted.lastIndex;
+    fields.lastIndex = offset;
+  }
+
+  return result + value.slice(offset);
+};
+
 /** For authorized private readers. Retains user content; unsuitable for logs or public output. */
 export const redactPrivateText = (value: string) =>
-  value
+  redactQuotedFields(value)
     .replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, "$1[REDACTED]@")
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9_+/=.-]+/gi, "$1 [REDACTED]")
-    .replace(
-      /(["'](?:[^"'\r\n]*(?:authorization|cookie|password|secret|api[_-]?key|(?:access|refresh|id)[_-]?token|private[_-]?key|credential)[^"'\r\n]*|token)["']\s*:\s*)(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/gi,
-      '$1"[REDACTED]"',
-    )
     .replace(
       /\b((?:cookie|set-cookie)[ \t]*[=:][ \t]*)[^\r\n]*(?:(?:\r\n?|\n)[ \t]+[^\r\n]*)*/gi,
       "$1[REDACTED]",
