@@ -24,16 +24,18 @@ describe("complete private diagnostic evidence", () => {
       private_key: "key-canary",
       client_secret: "secret-canary",
       "client\\secret": "escaped-key-canary",
+      "user's_password": "apostrophe-canary",
       credentials: "credentials-canary",
     };
 
     const page = privateEvidencePage(
       {
-        credentials,
+        payload: credentials,
         message: JSON.stringify(credentials),
         raw: "id_token=raw-canary",
         nested: JSON.stringify({ message: "{'password': 'nested-canary'}" }),
         unterminated: "{'password': 'unterminated-canary",
+        singleQuoted: "'user\"s_password': 'single-quote-canary'",
       },
       {},
     );

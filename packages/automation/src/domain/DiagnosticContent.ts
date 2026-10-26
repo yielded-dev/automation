@@ -20,13 +20,13 @@ const credentialField =
   /authorization|cookie|password|secret|apikey|accesstoken|refreshtoken|idtoken|privatekey|credential|^token$/;
 
 const redactQuotedFields = (value: string) => {
-  const fields = /(["'])([^"'\r\n]+)\1\s*:\s*(?=["'])/g;
+  const fields = /"([^"\r\n]+)"\s*:\s*(?=["'])|'([^'\r\n]+)'\s*:\s*(?=["'])/g;
   const quoted = /(?:"(?:\\.|[^"\\\r\n])*"|'(?:\\.|[^'\\\r\n])*')/y;
   let result = "";
   let offset = 0;
 
   for (let match = fields.exec(value); match !== null; match = fields.exec(value)) {
-    const key = match[2];
+    const key = match[1] ?? match[2];
 
     if (key === undefined || !credentialField.test(fieldName(key))) continue;
     quoted.lastIndex = fields.lastIndex;
