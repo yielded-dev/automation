@@ -39,7 +39,7 @@ Bun consumers can pin the repository to a full Git commit:
 {
   "dependencies": {
     "@yielded/automation": "github:yielded-dev/automation#<full-commit-sha>",
-    "effect": "^4.0.3"
+    "effect": "^4.1.0"
   },
   "trustedDependencies": ["@yielded/automation"]
 }

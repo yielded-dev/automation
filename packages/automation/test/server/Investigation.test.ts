@@ -1,4 +1,4 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { createEffectActor, setupEffect, waitFor } from "@xstate/effect";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Schema, Scope, Stream } from "effect";
 import { AiError, LanguageModel, type Response, Tool, Toolkit } from "effect/ai";
@@ -113,7 +113,7 @@ it("rejects a writable toolkit before planning or executing any tool", async () 
         }),
       ),
       Effect.provideService(InvestigationStore, host.store),
-      Effect.provide(NodeCrypto.layer),
+      Effect.provide(SecureRandom.layerWebCrypto),
     ),
   );
   expect(result).toMatchObject({
@@ -158,7 +158,7 @@ it.each([true, () => true] as const)(
           }),
         ),
         Effect.provideService(InvestigationStore, host.store),
-        Effect.provide(NodeCrypto.layer),
+        Effect.provide(SecureRandom.layerWebCrypto),
       ),
     );
     expect(reads).toBe(0);
@@ -231,7 +231,7 @@ it.each(["defect", "interrupted", "handler", "returned handler"] as const)(
           }),
         ),
         Effect.provideService(InvestigationStore, host.store),
-        Effect.provide(NodeCrypto.layer),
+        Effect.provide(SecureRandom.layerWebCrypto),
       ),
     );
     expect(calls).toBe(1);
@@ -241,6 +241,12 @@ it.each(["defect", "interrupted", "handler", "returned handler"] as const)(
       expect(result.cause.reasons).toHaveLength(original.reasons.length);
       for (const [index, reason] of original.reasons.entries()) {
         const actual = result.cause.reasons[index];
+        // Effect 4.1's LanguageModel promotes mixed failure/defect causes to defects.
+        if (scenario === "defect" && Cause.isFailReason(reason)) {
+          expect(actual?._tag).toBe("Die");
+          expect(actual && Cause.isDieReason(actual) && actual.defect).toBe(reason.error);
+          continue;
+        }
         expect(actual?._tag).toBe(reason._tag);
         if (Cause.isFailReason(reason)) {
           expect(actual && Cause.isFailReason(actual) && actual.error).toMatchObject({
@@ -310,7 +316,7 @@ it("stops after three research rounds and resumes a failed report without repeat
           }),
         ),
         Effect.provideService(InvestigationStore, host.store),
-        Effect.provide(NodeCrypto.layer),
+        Effect.provide(SecureRandom.layerWebCrypto),
       ),
     );
   const first = await deliver();
@@ -445,7 +451,7 @@ it("waits for each checkpoint and stops before the next tool when saving fails",
             }),
         }),
       ),
-      Effect.provide(NodeCrypto.layer),
+      Effect.provide(SecureRandom.layerWebCrypto),
       Effect.timeout("3 seconds"),
     ),
   );
@@ -506,7 +512,7 @@ it("waits for cleanup on scope cancellation and preserves interruption with its 
     }).pipe(
       Effect.provide(tools.toLayer({ read: () => Effect.die("Unexpected read") })),
       Effect.provideService(InvestigationStore, host.store),
-      Effect.provide(NodeCrypto.layer),
+      Effect.provide(SecureRandom.layerWebCrypto),
       Effect.timeout("3 seconds"),
     ),
   );
@@ -565,7 +571,7 @@ it("waits for cleanup when the public actor's consumer scope closes", async () =
     }).pipe(
       Effect.provide(tools.toLayer({ read: () => Effect.die("Unexpected read") })),
       Effect.provideService(InvestigationStore, host.store),
-      Effect.provide(NodeCrypto.layer),
+      Effect.provide(SecureRandom.layerWebCrypto),
       Effect.timeout("3 seconds"),
     ),
   );
@@ -663,7 +669,7 @@ it.each(["error", "return"] as const)(
           }),
         ),
         Effect.provideService(InvestigationStore, host.store),
-        Effect.provide(NodeCrypto.layer),
+        Effect.provide(SecureRandom.layerWebCrypto),
         Effect.timeout("3 seconds"),
       ),
     );

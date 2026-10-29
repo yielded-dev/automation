@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Cause, Clock, DateTime, Effect, Option, Redacted, Schema } from "effect";
 import { Base64 } from "effect/encoding";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
@@ -376,7 +376,7 @@ export const publishRepository = Effect.fn("RepairPublication.publish")(
           const authorization = {
             remote,
             instanceId: identity.instanceId,
-            grantId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
+            grantId: yield* (yield* SecureRandom.SecureRandom).uuidV4(),
           };
 
           yield* Effect.gen(function* () {

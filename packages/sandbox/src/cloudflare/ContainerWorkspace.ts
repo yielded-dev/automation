@@ -81,7 +81,7 @@ const make = Effect.gen(function* () {
     const now = yield* Clock.currentTimeMillis;
 
     yield* state.storage.kv.put("workspace-checkpoint", { input, result: null });
-    yield* state.storage.sync().pipe(Effect.withSpan("SandboxContainer.snapshotOutputGate"));
+    yield* state.storage.sync.pipe(Effect.withSpan("SandboxContainer.snapshotOutputGate"));
     const snapshot = yield* Effect.gen(function* () {
       const requestedAt = yield* Clock.currentTimeMillis;
       const result = yield* container.snapshotContainer({ name: input.name ?? "workspace" });

@@ -1,15 +1,5 @@
-import {
-  Crypto,
-  Cause,
-  Context,
-  Effect,
-  Exit,
-  Match,
-  Option,
-  PlatformError,
-  Result,
-  Schema,
-} from "effect";
+import * as SecureRandom from "effect/crypto/SecureRandom";
+import { Cause, Context, Effect, Exit, Match, Option, Result, Schema } from "effect";
 import { AiError } from "effect/ai";
 
 import { RepairSourceLimit, RepairSourceReadError } from "../domain/Investigation";
@@ -38,6 +28,7 @@ export const triageAiFailure = (error: AiError.AiError) => {
     ),
     Match.tag(
       "InternalProviderError",
+      "InvalidResponseError",
       "QuotaExhaustedError",
       "ContentPolicyError",
       () => "provider_failure" as const,
@@ -123,10 +114,10 @@ export const traceTriageStep = <A, E, R>(
   metadata: Omit<TriageTraceData, "operationId" | "status" | "output" | "failure" | "httpStatus">,
   work: Effect.Effect<A, E, R>,
   output: (value: A) => TriageTraceData["output"] = () => undefined,
-): Effect.Effect<A, E | PlatformError.PlatformError, R | TriageJournal | Crypto.Crypto> =>
+): Effect.Effect<A, E, R | TriageJournal | SecureRandom.SecureRandom> =>
   Effect.gen(function* () {
     const journal = yield* TriageJournal;
-    const operationId = yield* (yield* Crypto.Crypto).randomUUIDv4();
+    const operationId = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
     yield* journal.write({ ...metadata, operationId, status: "started" });
 

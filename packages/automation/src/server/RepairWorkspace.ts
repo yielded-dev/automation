@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Effect, Schema } from "effect";
 
 import type { SandboxTaskNativeRequest } from "./sandbox-contracts/sandbox-task-native";
@@ -37,7 +37,7 @@ const repairNativeRequest = (
       {
         purpose,
         action,
-        operationId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
+        operationId: yield* (yield* SecureRandom.SecureRandom).uuidV4(),
       },
       Schema.Json,
     );

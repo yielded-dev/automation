@@ -60,12 +60,12 @@ export const retainRepairSandboxCheckpoint = Effect.fn("RepairSandboxTask.retain
         message: "The saved candidate has no matching private repository receipt",
       });
     const repository = yield* (yield* SandboxAgentArtifacts).get(repositoryName);
-    const info = yield* repository.info();
+    const info = yield* repository.info;
     if (
       info.name !== repositoryName ||
       info.id !== repositoryId ||
       (yield* repository.readCommit(head)).hash !== head ||
-      (yield* repository.info()).id !== info.id
+      (yield* repository.info).id !== info.id
     )
       return yield* ConflictError.make({
         message: "The saved candidate repository generation changed",

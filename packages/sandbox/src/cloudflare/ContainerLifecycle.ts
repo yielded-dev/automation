@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Cause, Clock, Config, Context, Effect, Layer, Predicate, Schema } from "effect";
 import { DurableObjectContainer, DurableObjectState } from "effect-cf";
 
@@ -181,7 +181,7 @@ const make = Effect.gen(function* () {
 
         if (!current || current.timings.ownerReadyAt === null || !(yield* container.running))
           return null;
-        const id = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+        const id = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
         yield* protect(id, 20 * 60_000);
 
@@ -279,7 +279,7 @@ const make = Effect.gen(function* () {
       yield* state.storage.kv.delete("supervisor-protocol");
       yield* outboundOwner.clear;
       yield* state.storage.kv.delete("repository-authorizations");
-      const instanceId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+      const instanceId = yield* (yield* SecureRandom.SecureRandom).uuidV4();
       let current: ContainerIdentity = {
         instanceId,
         imageDigest: image,
@@ -300,14 +300,14 @@ const make = Effect.gen(function* () {
       yield* state.storage.kv.put("container-identity", current);
       yield* state.storage.kv.put("bootstrap-deadline", now + 20 * 60_000);
       // Observe the output gate before the RPC, instead of charging it to capacity.
-      yield* state.storage.sync().pipe(Effect.withSpan("SandboxContainer.bootOutputGate"));
+      yield* state.storage.sync.pipe(Effect.withSpan("SandboxContainer.bootOutputGate"));
       if (!(yield* reserve(instanceId))) {
         yield* backoff(now);
         yield* state.storage.kv.delete("container-identity");
 
         return yield* error("capacity.reserve", "Container capacity is exhausted");
       }
-      const token = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+      const token = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
       yield* state.storage.kv.put("process-supervisor-token", token);
       const startOptions = {
@@ -329,7 +329,7 @@ const make = Effect.gen(function* () {
         entrypoint: ["/usr/bin/tini", "-s", "--", "bun", "-e", PROCESS_BOOTSTRAP_SOURCE],
       };
 
-      yield* state.storage.sync().pipe(Effect.withSpan("SandboxContainer.startOutputGate"));
+      yield* state.storage.sync.pipe(Effect.withSpan("SandboxContainer.startOutputGate"));
       yield* container
         .start({
           ...startOptions,
@@ -595,9 +595,7 @@ const make = Effect.gen(function* () {
         }),
       );
       // Keep reply durability inside the measured operation, including declined requests.
-      yield* state.storage
-        .sync()
-        .pipe(Effect.withSpan("SandboxContainer.capacityReceiptOutputGate"));
+      yield* state.storage.sync.pipe(Effect.withSpan("SandboxContainer.capacityReceiptOutputGate"));
 
       return reserved;
     }),
