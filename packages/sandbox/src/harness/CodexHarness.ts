@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import {
   Cause,
   Clock,
@@ -59,7 +59,7 @@ export const cancelCodexTurn = (turn: StoredCodexTurn) =>
 export const CodexHarnessLive = Layer.effect(
   Harness,
   Effect.gen(function* () {
-    const crypto = yield* Crypto.Crypto;
+    const random = yield* SecureRandom.SecureRandom;
     return Harness.of({
       name: "codex",
       binary: "codex",
@@ -98,7 +98,7 @@ export const CodexHarnessLive = Layer.effect(
           : {
               id: request.turnId,
               processId: yield* sandbox.allocateProcess(),
-              token: yield* crypto.randomUUIDv4().pipe(Effect.orDie),
+              token: yield* random.uuidV4(),
               configuration: {
                 cwd: REPO_DIR,
                 env: { CODEX_HOME: CODEX_HOME_DIR },

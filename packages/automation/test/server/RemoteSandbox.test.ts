@@ -1,4 +1,4 @@
-import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Effect, Layer, Schema } from "effect";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -31,7 +31,7 @@ it("retains one native receipt identity when an operation is retried or reused",
       yield* mkdir;
       yield* Effect.all([mkdir, mkdir], { concurrency: "unbounded" });
       yield* sandbox.mkdir("/workspace/other");
-    }).pipe(Effect.provide(Layer.merge(client, NodeCrypto.layer))),
+    }).pipe(Effect.provide(Layer.merge(client, SecureRandom.layerWebCrypto))),
   );
   expect(requests).toHaveLength(6);
   expect(requests[0]).toBe(requests[1]);

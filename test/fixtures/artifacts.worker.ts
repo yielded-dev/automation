@@ -30,6 +30,7 @@ export const fixtureArtifacts = (binding: Fetcher): Artifacts.ArtifactsBinding =
       log: (...args) => call("log", name, args),
       readCommit: (...args) => call("readCommit", name, args),
       readTree: (...args) => call("readTree", name, args),
+      readBlob: (...args) => call("readBlob", name, args),
     }),
     create: (name, ...args) => call("create", name, args),
     import: (...args) => call("import", "", args),

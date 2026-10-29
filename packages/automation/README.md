@@ -24,8 +24,8 @@ Coding services under `/server` and `/cloudflare` additionally require
 server modules when using an operation independently of coding execution.
 
 Direct repair source, workspace and publication compositions require
-`Crypto.Crypto`. `makeRepairSandboxTaskDurableObject` supplies it; custom roots
-can use the [Sandbox composition guidance](../sandbox/README.md#compose-at-the-host-boundary).
+`SecureRandom.SecureRandom` from `effect/crypto`.
+`makeRepairSandboxTaskDurableObject` supplies it; custom roots can use the [Sandbox composition guidance](../sandbox/README.md#compose-at-the-host-boundary).
 
 ## Source pipelines
 

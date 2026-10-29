@@ -2,7 +2,7 @@
 # against the package's exported runtime identity by check-browser-tooling.
 FROM docker.io/library/node:24-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
 
-COPY --from=docker.io/cloudflare/sandbox:1.0.1@sha256:e796e813de8213fb062bba279ddeddbf61277389a2cc7b3e4620075a9188843b /usr/local/bin/sandbox-shim /usr/local/bin/sandbox-shim
+COPY --from=docker.io/cloudflare/sandbox:1.0.3@sha256:fc1740c3cba26461f0ab1771287c84018ab2cca43a70ebb823087c85d780aaec /usr/local/bin/sandbox-shim /usr/local/bin/sandbox-shim
 
 ARG CODEX_VERSION=0.157.1
 ARG GITHUB_CLI_VERSION=2.99.0
@@ -21,7 +21,7 @@ COPY --from=docker.io/oven/bun:1.4.2@sha256:9114c058aeae42162ee16dd5084b95fe9473
 # The pinned Codex CLI is the only reasoning agent. Postgres exists for
 # workspace dev servers (image-owned, disposable, no persistence lifecycle).
 RUN apt-get update \
-  && apt-get install --yes --no-install-recommends bash ca-certificates curl git postgresql procps util-linux \
+  && apt-get install --yes --no-install-recommends bash ca-certificates curl git libatomic1 postgresql procps util-linux \
   && rm -rf /var/lib/apt/lists/* \
   && npm install --global \
       "@openai/codex@${CODEX_VERSION}" \

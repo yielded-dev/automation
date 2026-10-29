@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Cause, Clock, Effect, Option, Schema, Semaphore } from "effect";
 
 import {
@@ -38,7 +38,7 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
   start: EnsureOptions = {},
 ) {
   const client = yield* RepairSandboxTaskClient;
-  const crypto = yield* Crypto.Crypto;
+  const random = yield* SecureRandom.SecureRandom;
   const convert = <A, E, R>(
     effect: Effect.Effect<A, E, R>,
   ): Effect.Effect<A, SandboxOperationError, R> =>
@@ -64,8 +64,7 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
       const id = yield* Semaphore.withPermit(
         identityLock,
         Effect.gen(function* () {
-          if (acceptedId === undefined)
-            acceptedId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+          if (acceptedId === undefined) acceptedId = yield* random.uuidV4();
           return acceptedId;
         }),
       );
@@ -181,8 +180,8 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
           code: "ESTALE",
           cause: "The native incarnation is unavailable",
         });
-      const nativeToken = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
-      const operationId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+      const nativeToken = yield* random.uuidV4();
+      const operationId = yield* random.uuidV4();
 
       yield* call(
         { _tag: "PrepareFile", path, access, nativeToken, expectedInstanceId: owner.instanceId },
@@ -313,7 +312,7 @@ export const remoteRepairSandbox = Effect.fn("remoteRepairSandbox")(function* (
           { _tag: "ReadFileString", path: MATERIALIZATION_MARKER },
           Schema.String,
         );
-        const operationId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
+        const operationId = yield* random.uuidV4();
 
         yield* call(
           {

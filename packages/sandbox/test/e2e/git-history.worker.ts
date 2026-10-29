@@ -1,5 +1,5 @@
 import { webCryptoLayer } from "@yielded/sandbox/cloudflare/Bindings";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { fixtureArtifacts } from "../../../../test/fixtures/artifacts.worker";
 import { Cause, Clock, Context, Effect, Layer, Option, Ref, Schema, Tracer } from "effect";
 import {
@@ -219,16 +219,15 @@ const artifactsLayer = Layer.effect(
         });
         return {
           ...repo,
-          info: () =>
-            Effect.gen(function* () {
-              const info = yield* repo.info();
-              const fault = yield* PinnedReadFault;
-              return fault !== null &&
-                ((fault.kind === "replaced-before" && fault.reads.length >= 1) ||
-                  (fault.kind === "replaced-after" && fault.reads.length >= 2))
-                ? { ...info, id: "replacement-generation" }
-                : info;
-            }),
+          info: Effect.gen(function* () {
+            const info = yield* repo.info;
+            const fault = yield* PinnedReadFault;
+            return fault !== null &&
+              ((fault.kind === "replaced-before" && fault.reads.length >= 1) ||
+                (fault.kind === "replaced-after" && fault.reads.length >= 2))
+              ? { ...info, id: "replacement-generation" }
+              : info;
+          }),
           readCommit: Effect.fnUntraced(function* (commit: string) {
             yield* failRead("readCommit", commit);
             return yield* repo.readCommit(commit);
@@ -717,7 +716,7 @@ const run = Effect.fn("GitHistoryFixture.run")(
             repositoryId: value.source.repositoryId,
             includeHistory: true,
           });
-        const marker = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+        const marker = yield* (yield* SecureRandom.SecureRandom).uuidV4();
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, marker);
         yield* store.materializationId.put(marker);
         if (value.checkpointBeforeSetup)
@@ -745,7 +744,7 @@ const run = Effect.fn("GitHistoryFixture.run")(
         const missingRecipeCommit = yield* readRepositorySetup("0".repeat(40)).pipe(Effect.exit);
         const inspection = { cwd: REPO_DIR, timeout: 30_000, maxBytes: 128 };
         const stale = yield* makeNativeSandbox(sandboxName, {
-          expectedInstanceId: yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie),
+          expectedInstanceId: yield* (yield* SecureRandom.SecureRandom).uuidV4(),
           recovery: "exactWorkspaceRequired",
         });
         const staleEnsure = yield* stale.ensure().pipe(Effect.exit);

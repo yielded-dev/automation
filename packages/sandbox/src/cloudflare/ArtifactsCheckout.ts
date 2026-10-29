@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import { Cause, Clock, Context, Effect, Layer, Redacted, Schedule, Schema } from "effect";
 import type { Artifacts } from "effect-cf";
 import { FetchHttpClient } from "effect/http";
@@ -312,7 +312,7 @@ const clearRepositoryAuthorization = Effect.fn("ArtifactsCheckout.clearRepositor
 );
 
 const make = Effect.gen(function* () {
-  const crypto = yield* Crypto.Crypto;
+  const random = yield* SecureRandom.SecureRandom;
   const repositoryDirectory = yield* ArtifactsCheckoutDirectory;
   const artifacts = yield* SandboxAgentArtifacts;
   const config = yield* SandboxAgentConfig;
@@ -366,7 +366,7 @@ const make = Effect.gen(function* () {
       generation: ArtifactsRepositoryGeneration,
     ) {
       yield* verifyRepositoryMetadata(
-        yield* repository.info().pipe(boundedArtifacts("verifyRepositoryGeneration")),
+        yield* repository.info.pipe(boundedArtifacts("verifyRepositoryGeneration")),
         generation,
       );
     },
@@ -614,7 +614,7 @@ const make = Effect.gen(function* () {
     const repository = yield* artifacts
       .get(repositoryName)
       .pipe(boundedArtifacts("getSourceGeneration"));
-    const info = yield* repository.info().pipe(boundedArtifacts("readSourceGeneration"));
+    const info = yield* repository.info.pipe(boundedArtifacts("readSourceGeneration"));
     const generation = { repositoryName, repositoryId: info.id };
 
     yield* verifyRepositoryGeneration(repository, generation);
@@ -1900,10 +1900,12 @@ const make = Effect.gen(function* () {
     deletePlannedFork,
     sourceGeneration,
     cloneIntoSandbox: (...args: Parameters<typeof cloneIntoSandbox>) =>
-      cloneIntoSandbox(...args).pipe(Effect.provideService(Crypto.Crypto, crypto)),
+      cloneIntoSandbox(...args).pipe(Effect.provideService(SecureRandom.SecureRandom, random)),
     discardCloneReceipt,
     cloneGenerationIntoSandbox: (...args: Parameters<typeof cloneGenerationIntoSandbox>) =>
-      cloneGenerationIntoSandbox(...args).pipe(Effect.provideService(Crypto.Crypto, crypto)),
+      cloneGenerationIntoSandbox(...args).pipe(
+        Effect.provideService(SecureRandom.SecureRandom, random),
+      ),
     readGenerationMainHead: (generation: ArtifactsRepositoryGeneration) =>
       mainHead(generation.repositoryName, generation.repositoryId),
     retargetOrigin,

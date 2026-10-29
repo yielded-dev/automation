@@ -1,4 +1,5 @@
-import { Cause, Context, Crypto, Effect, Layer, Option, PlatformError } from "effect";
+import { Cause, Context, Effect, Layer, Option } from "effect";
+import { Digest, SecureRandom } from "effect/crypto";
 import { Artifacts } from "effect-cf";
 
 import type { ContainerSize } from "../Contract";
@@ -16,20 +17,8 @@ import {
 } from "./NativeSandbox";
 import { scopedSandboxName } from "./resource-names";
 
-/** Web Crypto implementation for Cloudflare composition roots. */
-export const webCryptoLayer = Layer.succeed(
-  Crypto.Crypto,
-  Crypto.make({
-    randomBytes: (size) => crypto.getRandomValues(new Uint8Array(size)),
-    digest: (algorithm, data) =>
-      Effect.tryPromise({
-        try: async () =>
-          new Uint8Array(await crypto.subtle.digest(algorithm, Uint8Array.from(data).buffer)),
-        catch: (cause) =>
-          PlatformError.systemError({ _tag: "Unknown", module: "Crypto", method: "digest", cause }),
-      }),
-  }),
-);
+/** Native Effect Web Crypto services for Cloudflare composition roots. */
+export const webCryptoLayer = Layer.merge(Digest.layerWebCrypto, SecureRandom.layerWebCrypto);
 
 export class SandboxAgentArtifacts extends Artifacts.make("sandbox-agent/Artifacts") {}
 

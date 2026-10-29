@@ -76,8 +76,8 @@
   "peerDependencies": {
     "@yielded/sandbox": "^0.8.0",
     "drizzle-orm": "^1.0.0-rc.4",
-    "effect": "^4.0.3",
-    "effect-cf": "^0.56.2"
+    "effect": "^4.1.0",
+    "effect-cf": "^0.59.0"
   },
   "peerDependenciesMeta": {
     "@yielded/sandbox": {

@@ -6,13 +6,13 @@
     "live": "node run.mjs"
   },
   "dependencies": {
-    "@effect/ai-openai": "4.0.3",
-    "@effect/sql-d1": "4.0.3",
-    "@effect/sql-sqlite-do": "4.0.3",
+    "@effect/ai-openai": "4.1.0",
+    "@effect/sql-d1": "4.1.0",
+    "@effect/sql-sqlite-do": "4.1.0",
     "@yielded/agent": "0.1.0-beta.185",
     "@yielded/sandbox": "workspace:*",
-    "effect": "4.0.4",
-    "effect-cf": "0.56.2"
+    "effect": "4.1.0",
+    "effect-cf": "0.59.0"
   },
   "devDependencies": {
     "miniflare": "5.20261006.1-alpha",

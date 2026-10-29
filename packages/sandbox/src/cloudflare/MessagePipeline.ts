@@ -1,4 +1,4 @@
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import {
   Cause,
   Clock,
@@ -1040,7 +1040,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
             ensured?.disposition === "existing" || hadFork || storedMaterialization !== null;
         }
         yield* mark("cloneComplete");
-        const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+        const materializationId = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
         yield* sandbox
           .writeFile(MATERIALIZATION_MARKER, materializationId)
@@ -1130,7 +1130,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           yield* store.verifiedHead.put(sourceHead!);
         }
         yield* mark("cloneComplete");
-        const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+        const materializationId = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
         yield* sandbox.writeFile(MATERIALIZATION_MARKER, materializationId);
         yield* store.materializationId.put(materializationId);
@@ -1207,7 +1207,7 @@ export const runTurn = Effect.fn("SandboxAgentSession.runMessagePipeline")(funct
           yield* mark("cloneComplete");
           harnessVersion = null;
           yield* store.verifiedHead.put(sourceHead);
-          const materializationId = yield* (yield* Crypto.Crypto).randomUUIDv4().pipe(Effect.orDie);
+          const materializationId = yield* (yield* SecureRandom.SecureRandom).uuidV4();
 
           yield* sandbox
             .writeFile(MATERIALIZATION_MARKER, materializationId)

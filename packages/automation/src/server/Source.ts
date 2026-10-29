@@ -163,7 +163,7 @@ export const readRepairSource = Effect.fn("RepairSource.read")(function* (input:
     ),
   );
 
-  if ((yield* repository.info()).id !== generation)
+  if ((yield* repository.info).id !== generation)
     return yield* ConflictError.make({ message: "The repair source generation changed" });
   const source = yield* Schema.decodeEffect(SandboxTaskSeedRepository)({
     _tag: "SeedRepository",
@@ -187,7 +187,7 @@ export const prepareRepairSource = Effect.fn("RepairSource.prepare")(function* (
   const { source, missing } = preparation;
   const repository = yield* (yield* SandboxAgentArtifacts).get(source.repositoryName);
   const verifyGeneration = Effect.gen(function* () {
-    if ((yield* repository.info()).id !== source.artifactsRepositoryId)
+    if ((yield* repository.info).id !== source.artifactsRepositoryId)
       return yield* ConflictError.make({ message: "The repair source generation changed" });
     if (
       source.artifactsRef === "refs/heads/main" &&
