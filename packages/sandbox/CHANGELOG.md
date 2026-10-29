@@ -1,5 +1,11 @@
 # @yielded/sandbox
 
+## 0.9.0
+
+### Minor Changes
+
+- [#35](https://github.com/yielded-dev/automation/pull/35) [`89796c7`](https://github.com/yielded-dev/automation/commit/89796c7e9f12d59632a7239c8fed34c5ddc94e5e) Thanks [@danieljvdm](https://github.com/danieljvdm)! - Require Effect 4.1 and effect-cf 0.59, and provide native Digest and SecureRandom services at composition roots. Upgrade the paired Cloudflare Sandbox SDK and container image to 1.0.3; rebuild host images when adopting this release.
+
 ## 0.8.0
 
 ### Minor Changes
