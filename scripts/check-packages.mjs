@@ -44,7 +44,7 @@ const tools = versions(
   "miniflare",
   "vite-plus",
   "typescript",
-  "@yielded/effect-tsrs",
+  "@effect/tsgo",
   "@cloudflare/workers-types",
   "@types/node",
 );
