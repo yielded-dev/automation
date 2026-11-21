@@ -19,9 +19,9 @@
         "@effect/sql-d1": "4.1.0",
         "@effect/sql-pg": "4.1.0",
         "@effect/sql-sqlite-do": "4.1.0",
+        "@effect/tsgo": "0.73.2",
         "@types/node": "26.1.2",
         "@yielded/automation": "workspace:*",
-        "@yielded/effect-tsrs": "0.2.2",
         "@yielded/sandbox": "workspace:*",
         "drizzle-orm": "1.0.0-rc.4",
         "effect": "4.1.0",
@@ -82,7 +82,7 @@
         "@yielded/sandbox": "workspace:*",
       },
       "peerDependencies": {
-        "@yielded/sandbox": "^0.8.0",
+        "@yielded/sandbox": "^0.9.0",
         "drizzle-orm": "^1.0.0-rc.4",
         "effect": "^4.1.0",
         "effect-cf": "^0.59.0",
@@ -189,6 +189,22 @@
     "@effect/sql-pg": ["@effect/sql-pg@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0" } }, "sha512-/Q1M2PEuk8eSLEmgjfvix1/WZTuRBxu75ZENbKkIh2J3c50dQb8NMFOGMPocMFlPFh5k4WUOUKZQcgXzBljTFA=="],
 
     "@effect/sql-sqlite-do": ["@effect/sql-sqlite-do@4.1.0", "", { "peerDependencies": { "effect": "^4.1.0" } }, "sha512-Jbcsyr5adFzrXhI2vfoIiZ0Y6VT1av6w3+o3jmmvM8SMM+I84KFBe22umnLZDZ6kgvnVQXpEBqjGWKd0IByCfw=="],
+
+    "@effect/tsgo": ["@effect/tsgo@0.73.2", "", { "optionalDependencies": { "@effect/tsgo-darwin-arm64": "0.73.2", "@effect/tsgo-darwin-x64": "0.73.2", "@effect/tsgo-linux-arm": "0.73.2", "@effect/tsgo-linux-arm64": "0.73.2", "@effect/tsgo-linux-x64": "0.73.2", "@effect/tsgo-win32-arm64": "0.73.2", "@effect/tsgo-win32-x64": "0.73.2" }, "bin": { "effect-tsgo": "dist/effect-tsgo.cjs" } }, "sha512-eM5ayjlp0fD2l+aL+4O/y9d1LwF1m5in5EdNkOYwLFcXI3kcee8CWP4wr2xTc4L/+KJmS/uaYUGWdOj4G46BDA=="],
+
+    "@effect/tsgo-darwin-arm64": ["@effect/tsgo-darwin-arm64@0.73.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-+6xuv33cSp44tNWc9erzLKmS7qRB/QdPJYUCJrEY+4lfRhFdAsCvRDw6uw2aqzePuZDHfM3gDqfYEl5g/mWBfQ=="],
+
+    "@effect/tsgo-darwin-x64": ["@effect/tsgo-darwin-x64@0.73.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-Oqwft3rP05CWImD1GGPuWB3esJrxz7iSOXGpfku1KIK1eElW0aE9E1vdpgiFJ3lykJruyOOZ4UB+E4US5K/alA=="],
+
+    "@effect/tsgo-linux-arm": ["@effect/tsgo-linux-arm@0.73.2", "", { "os": "linux", "cpu": "arm" }, "sha512-JdAFBCv0Q0UyMe4Et7xTjqLoM6jDvci6qsaqWwGCRR8ZZhvc+j9kLw7dN3GJnYlHMr0HUGWnSCxUBISODpX/kA=="],
+
+    "@effect/tsgo-linux-arm64": ["@effect/tsgo-linux-arm64@0.73.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-/EuCPqoqZb+kkcdCnypwd/stmSvAO5k/NKS+sQJSv6F2wXQAIgWB4VSNmftt1b/s7dBB0QysLFohscV8OxzCgA=="],
+
+    "@effect/tsgo-linux-x64": ["@effect/tsgo-linux-x64@0.73.2", "", { "os": "linux", "cpu": "x64" }, "sha512-1g5UQ8nwpqJVwrXvHLstEc7N7jRuqZm2axukryerGV6/e6hD2vc70tHdb1ZVg8zIUR40TWem1MCoFNNIXKOlZg=="],
+
+    "@effect/tsgo-win32-arm64": ["@effect/tsgo-win32-arm64@0.73.2", "", { "os": "win32", "cpu": "arm64" }, "sha512-J4kyLNk0Fi6WwIWQV6omCu1OkHcNNY6KMcs5K2AqUV8l+QUMEetko5NkcmEi1Keedh6bNRqOGwvB9dg+Duvypw=="],
+
+    "@effect/tsgo-win32-x64": ["@effect/tsgo-win32-x64@0.73.2", "", { "os": "win32", "cpu": "x64" }, "sha512-N5V9GaTZseqGN38+XhGypLpweX2XiM2DO1V9DUppp26deZIJe0j3QRiRCSUAQoJrR0Lji/k5wo3jki6P38sCPA=="],
 
     "@emnapi/runtime": ["@emnapi/runtime@1.11.3", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-Xz4Tpyki7XyrpbUK1jR1AhdAdaXyhhY4lZ3neLodmhpuWfy2PAQN5B46sAiU4liOXGLkHypn/qU+jvfWSCYYLA=="],
 
@@ -535,18 +551,6 @@
     "@yielded/agent": ["@yielded/agent@0.1.0-beta.185", "", { "peerDependencies": { "effect": "^4.0.3" } }, "sha512-ZzeJC5QneJ1F4+Gk7DJjVfukoF2f7JpuBI3FIhdM+wvAqIgVQB500cgOxD6Geh+eIR54fInOGzqFE5PM06LmaA=="],
 
     "@yielded/automation": ["@yielded/automation@workspace:packages/automation"],
-
-    "@yielded/effect-tsrs": ["@yielded/effect-tsrs@0.2.2", "", { "optionalDependencies": { "@yielded/effect-tsrs-darwin-arm64": "0.2.2", "@yielded/effect-tsrs-darwin-x64": "0.2.2", "@yielded/effect-tsrs-linux-arm64": "0.2.2", "@yielded/effect-tsrs-linux-x64": "0.2.2", "@yielded/effect-tsrs-win32-x64": "0.2.2" }, "bin": { "effect-tsrs": "bin/effect-tsrs.js" } }, "sha512-F0woy23jX5bMMVOo4Wh+PXhUPvnsH3pNZn7IUamUB2K0sKijui4YNz7dib8Tb6y90+0/pbnIU3iKrZTAsI1phw=="],
-
-    "@yielded/effect-tsrs-darwin-arm64": ["@yielded/effect-tsrs-darwin-arm64@0.2.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-G1O4xUTCvDkg7OsMe3uIbhLj4lrVYMr69WhmQlHyISnBAb2fsa0QprnH7qQ/8PqxUszvC/OWBDim5Uo8xi9dkA=="],
-
-    "@yielded/effect-tsrs-darwin-x64": ["@yielded/effect-tsrs-darwin-x64@0.2.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-Zvp+OjYuKNnFx25KyQe7UWs3Omue1xBEmPIDXLR5aIZUMKjW99cdEy21jNxDNxsjM9kHzZjZMDBkdm5DX0dLRg=="],
-
-    "@yielded/effect-tsrs-linux-arm64": ["@yielded/effect-tsrs-linux-arm64@0.2.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-/G13YyZSO6HnpsAxYz8Np7owDobQWNr8WmTQ4mcVIVY+s+wl8raNUP84nh+Ok0GYqX+zhdFydEHqvWu9IqV9ew=="],
-
-    "@yielded/effect-tsrs-linux-x64": ["@yielded/effect-tsrs-linux-x64@0.2.2", "", { "os": "linux", "cpu": "x64" }, "sha512-orS8USUkEzL9Pkvm2MH8VXgBhu9yCadr1IT/rIyDOZCWmDyFMNZQ2DVg+NBvFfPEQHn8IpZMkza9aYLgy8KJyQ=="],
-
-    "@yielded/effect-tsrs-win32-x64": ["@yielded/effect-tsrs-win32-x64@0.2.2", "", { "os": "win32", "cpu": "x64" }, "sha512-5Vb0JusFTEPUJ6LREP94qO2hX4gMMTx06cg7dPt5OU9Xb0eiBcqi1m8xegw3maK1fEFc8rd2hYN+ikTleSlPDw=="],
 
     "@yielded/example-agent-sandbox": ["@yielded/example-agent-sandbox@workspace:examples/agent-sandbox"],
 
